@@ -1,5 +1,5 @@
-from config import ScreenSettings
 import pygame
+from config import ScreenSettings
 
 
 class Screen:
@@ -9,5 +9,5 @@ class Screen:
         pygame.display.set_caption(ScreenSettings.game_title)
         self.surface.fill(ScreenSettings.bg_color)
 
-    def update(self):
+    def update(self) -> None:
         self.surface.fill(ScreenSettings.bg_color)

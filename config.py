@@ -6,3 +6,4 @@ class ScreenSettings:
     size = [width, height]
     game_title = "Evolution"
     bg_color = (0, 154, 200)
+    FPS = 30

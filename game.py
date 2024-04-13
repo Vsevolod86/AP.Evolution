@@ -1,12 +1,14 @@
 import pygame
 from screen import Screen
+from config import ScreenSettings
 
 
 class Game:
     def __init__(self) -> None:
         pygame.init()
-        self.screen = Screen()
+        self.main_surface = Screen()
         self.is_game_run = True
+        self.FPS_clock = pygame.time.Clock()
 
     def event_tracking(self):
         """Отслеживание событий"""
@@ -19,9 +21,10 @@ class Game:
         """Запуск игры"""
         # Цикл игры
         while self.is_game_run:
+            self.FPS_clock.tick(ScreenSettings.FPS)
 
             self.event_tracking()
-            self.screen.update()
+            self.main_surface.update()
 
             # Обновление экрана (всегда в конце цикла)
             pygame.display.flip()
