@@ -5,4 +5,4 @@ Advanced Python 2024: A game of imitation natural selection. (PC, local)
 ![UML](UML/UMLv1.png)
 
 ## Logical diagram
-![UML](UML/LogicalDiagramV1.png)
+![UML](UML/LogicalDiagramV2.png)
