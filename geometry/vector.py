@@ -27,13 +27,13 @@ class Vector:
         self.y -= other.y
         return self
 
-    def __mul__(self, scalar) -> "Vector":  # *
+    def __mul__(self, scalar: float) -> "Vector":  # *
         return Vector(self.x * scalar, self.y * scalar)
 
-    def __rmul__(self, scalar) -> "Vector":  # *
+    def __rmul__(self, scalar: float) -> "Vector":  # *
         return self * scalar
 
-    def __imul__(self, scalar):  # *=
+    def __imul__(self, scalar: float):  # *=
         self.x *= scalar
         self.y *= scalar
         return self
