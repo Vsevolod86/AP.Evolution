@@ -21,32 +21,6 @@
 					"defaultDiagram": true,
 					"ownedViews": [
 						{
-							"_type": "RectangleView",
-							"_id": "AAAAAAGO2kqqiv2G6UU=",
-							"_parent": {
-								"$ref": "AAAAAAFF+qBtyKM79qY="
-							},
-							"fillColor": "#8282FF",
-							"font": "Arial;13;0",
-							"left": 600,
-							"top": 112,
-							"width": 464,
-							"height": 488
-						},
-						{
-							"_type": "RectangleView",
-							"_id": "AAAAAAGO2kmaf8Tg/YE=",
-							"_parent": {
-								"$ref": "AAAAAAFF+qBtyKM79qY="
-							},
-							"fillColor": "#76D876",
-							"font": "Arial;13;0",
-							"left": 136,
-							"top": 112,
-							"width": 456,
-							"height": 488
-						},
-						{
 							"_type": "UMLClassView",
 							"_id": "AAAAAAGO1/4sAy85TO8=",
 							"_parent": {

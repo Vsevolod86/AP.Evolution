@@ -1,9 +1,9 @@
 import math
 
 
-class Vector():
+class Vector:
     def __init__(self, x=0.0, y=0.0) -> None:
-        self.x, self.y = x, y
+        self.x, self.y = x + 0.0, y + 0.0
 
     def __repr__(self):
         return "Vector({}, {})".format(self.x, self.y)
@@ -46,17 +46,17 @@ class Vector():
     def __neg__(self) -> "Vector":  # -
         return Vector(-self.x, -self.y)
 
-    def __len__(self) -> float:
+    def __abs__(self) -> float:
         return math.hypot(self.x, self.y)
 
     def sign(self) -> "Vector":
         sign = lambda a: 0 if (a == 0) else (1 if (a > 0) else -1)
         return Vector(sign(self.x), sign(self.y))
 
-    def normalization(self) -> "Vector":
-        if len(self) == 0:
-            return self
-        return Vector(self.x / len(self), self.y / len(self))
+    def get_normalization(self) -> "Vector":
+        if abs(self) > 0.0:
+            return Vector(self.x / abs(self), self.y / abs(self))
+        return Vector()
 
     def rotate(self, angle: float):
         a = self.x
