@@ -2,44 +2,69 @@ from abc import abstractmethod, ABC
 import pygame
 from geometry.vector import Vector
 from config import ButtonSettings as bs
-from config import ScreenSettings as ss
 from config import PlayerSettings as ps
 
 
-class IRenderable(ABC):
-    @abstractmethod
-    def update(
-        self, screen_surface: pygame.Surface, entities: list["RasterEntity"]
-    ) -> None:
-        pass
-
+class IEntity(ABC):
     @abstractmethod
     def draw(
-        self, screen_surface: pygame.Surface, position: Vector, zoomLevel: float
+        self, screen_surface: pygame.Surface, convert_position, zoomLevel: float
     ) -> None:
         pass
 
+    @abstractmethod
+    def update(self, entities: list["IEntity"]) -> None:
+        pass
 
-class VectorEntity(pygame.sprite.Sprite, IRenderable):
+
+class RenderedRect(pygame.sprite.Sprite, IEntity):
     def __init__(self, position: Vector, size: Vector, color: tuple[int]):
         super().__init__()
-        self.position = position
-        self.rect = pygame.Rect(*position.pair(), *size.pair())
         self.size = size
         self.color = color
+        self.position = position
+        self.rect = pygame.Rect(*position.pair(), *size.pair())
 
-    def update(self, screen_surface: pygame.Surface, entities: list["RasterEntity"]):
+    def update(self, entities: list[IEntity]):
         self.rect.centerx = int(self.position.x)
         self.rect.centery = int(self.position.y)
 
-    def draw(self, screen_surface: pygame.Surface, position: Vector, zoomLevel: float):
+    def draw(self, screen_surface: pygame.Surface, convert_position, zoomLevel: float):
         size = self.size * zoomLevel
+        new_position: Vector = convert_position(self.position)
         pygame.draw.rect(
-            screen_surface, (0, 0, 128), pygame.Rect(*position.pair(), *size.pair())
+            screen_surface, self.color, pygame.Rect(*new_position.pair(), *size.pair())
         )
 
 
-class RasterEntity(pygame.sprite.Sprite, IRenderable):
+class Bar(IEntity):
+    def __init__(
+        self, position: Vector, size: Vector, color: tuple[int], bg_color: tuple[int]
+    ):
+        self.percent = 1
+        self.position = position
+        self.bg_bar = RenderedRect(position, size, bg_color)
+        self.ident = Vector(size.y * 0.1, size.y * 0.1)
+        self.movable_bar = RenderedRect(
+            position + self.ident, size - 2 * self.ident, color
+        )
+
+    def update(self, entities: list[IEntity]):
+        self.percent = max(0, min(self.percent, 1))
+
+        self.bg_bar.position = self.position
+        self.bg_bar.update(entities)
+
+        self.movable_bar.position = self.position + self.ident
+        self.movable_bar.size.x = self.percent * (self.bg_bar.size.x - 2 * self.ident.x)
+        self.movable_bar.update(entities)
+
+    def draw(self, screen_surface: pygame.Surface, convert_position, zoomLevel: float):
+        self.bg_bar.draw(screen_surface, convert_position, zoomLevel)
+        self.movable_bar.draw(screen_surface, convert_position, zoomLevel)
+
+
+class RasterEntity(pygame.sprite.Sprite, IEntity):
     def __init__(self, image_path: str) -> None:
         super().__init__()
         self.image = pygame.image.load(image_path)
@@ -47,14 +72,15 @@ class RasterEntity(pygame.sprite.Sprite, IRenderable):
         self.rect = self.image.get_rect()
         self.size = Vector(self.rect.w, self.rect.h)
 
-    def update(self, screen_surface: pygame.Surface, entities: list["RasterEntity"]):
+    def update(self, entities: list[IEntity]):
         self.rect.centerx = int(self.position.x)
         self.rect.centery = int(self.position.y)
 
-    def draw(self, screen_surface: pygame.Surface, position: Vector, zoomLevel: float):
+    def draw(self, screen_surface: pygame.Surface, convert_position, zoomLevel: float):
         size = self.size * zoomLevel
+        new_position: Vector = convert_position(self.position)
         image = pygame.transform.scale(self.image, size.pair())
-        screen_surface.blit(image, position.pair())
+        screen_surface.blit(image, new_position.pair())
 
 
 class Actor(RasterEntity):
@@ -66,9 +92,9 @@ class Actor(RasterEntity):
     def move(self, entities: list[RasterEntity]):
         self.position += self.move_direction.get_normalization() * self.speed
 
-    def update(self, screen_surface: pygame.Surface, entities: list[RasterEntity]):
+    def update(self, entities: list[RasterEntity]):
         self.move(entities)
-        super().update(screen_surface, entities)
+        super().update(entities)
 
 
 class Player(Actor):
@@ -86,150 +112,78 @@ class Player(Actor):
                     self.move_direction.y += direct
                 self.move_direction = self.move_direction.sign()
 
-#TODO: переделать классы ниже
-# в класс screen сделать три камеры (фон, персонажи, display)
-class Camera:
-    def __init__(
-        self,
-        position: Vector,
-        size: Vector,
-        speed=0.0,
-        zoomLevel=1.0,
-        entity: IRenderable = None,
-    ) -> None:
-        assert 0 <= speed <= 1
-        self.position = position
-        self.size = size
-        self.rect = pygame.Rect(*self.position.pair(), *self.size.pair())
 
-        self.speed = speed
+class Camera:
+    """
+    Класс обладающий областью видимости, который при помощи методов отображет объекты в ней.\\
+    При помощи метода set_tracked_entity, можно прикрепить камеру к сущности и следить за ней.
+    """
+
+    def __init__(self, rect: pygame.Rect, zoomLevel=1.0) -> None:
+        self.rect = rect
         self.zoomLevel = zoomLevel
         self.world_position = Vector(0.0, 0.0)
 
+        self.speed = 0.0
+        self.trackedEntity: IEntity = None
+
+    def set_tracked_entity(self, entity: IEntity, speed=0.0):
+        assert 0 <= speed <= 1
+        self.speed = speed
         self.trackedEntity = entity
 
-    def _render(
-        self,
-        screen_surface: pygame.Surface,
-        entities: list[IRenderable],
-        new_position,
-        is_fill_bg: bool,
-    ) -> None:
-        screen_surface.set_clip(self.rect)  # START render
+    def render(self, screen_surface: pygame.Surface, entities: list[IEntity]) -> None:
+        position_on_camera = lambda position: position
+        if self.trackedEntity is not None:
+            a = self.speed
+            entity = self.trackedEntity
+            position = Vector(self.rect.x, self.rect.y)
+            size = Vector(self.rect.width, self.rect.height)
 
-        # fill camera background
-        if is_fill_bg:
-            screen_surface.fill(ss.bg_color)
+            target_position = entity.position + 0.5 * entity.size
+            self.world_position = self.world_position * (1 - a) + target_position * a
+            offset = position + 0.5 * size - (self.zoomLevel * self.world_position)
+            position_on_camera = lambda position: (self.zoomLevel * position) + offset
+
+        # START render
+        screen_surface.set_clip(self.rect)
 
         # render entities
         for e in entities:
-            e.draw(screen_surface, new_position(e), self.zoomLevel)
+            e.draw(screen_surface, position_on_camera, self.zoomLevel)
 
-        screen_surface.set_clip(None)  # FINISH render
+        # FINISH render
+        screen_surface.set_clip(None)
 
-    def update_rendered(
-        self, screen_surface: pygame.Surface, entities: list[IRenderable]
-    ) -> None:
-        # update camera (наблюдение за персонажем)
-        if self.trackedEntity is not None:
-            target_position = (
-                self.trackedEntity.position + 0.5 * self.trackedEntity.size
-            )
-            self.world_position = (
-                self.world_position * (1 - self.speed) + target_position * self.speed
-            )
-        offset = (
-            self.position + 0.5 * self.size - (self.zoomLevel * self.world_position)
-        )
-        self._render(
-            screen_surface,
-            entities,
-            lambda e: (self.zoomLevel * e.position) + offset,
-            True,
-        )
 
-    def update_display(
-        self, screen_surface: pygame.Surface, entities: list[IRenderable]
-    ) -> None:
-        self._render(screen_surface, entities, lambda e: e.position, False)
+class Layer:
+    def __init__(self, camera: Camera, z_index: int = 1) -> None:
+        self.z_index = z_index
+        self.camera = camera
+        self.display_entities: list[IEntity] = []
+
+    def render(self, screen_surface: pygame.Surface) -> None:
+        self.camera.render(screen_surface, self.display_entities)
 
 
 class Screen:
-    def __init__(self, camera: Camera) -> None:
-        self.rendered_entities: list[IRenderable] = []
-        self.display_entities: list[IRenderable] = []
-        self.camera = camera
+    def __init__(self, surface: pygame.Surface) -> None:
+        self.surface = surface
+        self.layers: dict[str, Layer] = {}
+        self.sorted_layers: list[str] = []
 
-    def add_rendered_entities(self, entities) -> None:
-        self.rendered_entities += entities
+    def add_layer(self, l_name: str, display_area: pygame.Rect, z_index: int = 1):
+        self.layers[l_name] = Layer(Camera(display_area), z_index)
+        self.sorted_layers = list(
+            zip(*sorted(self.layers.items(), key=lambda it: it[1].z_index))
+        )[0]
 
-    def add_display_entities(self, entities) -> None:
-        self.display_entities += entities
+    def add_entity_on_layer(self, l_name: str, entity: IEntity):
+        self.layers[l_name].display_entities.append(entity)
 
-    def update(self, screen_surface: pygame.Surface) -> None:
-        self.camera.update_rendered(screen_surface, self.rendered_entities)
-        self.camera.update_display(screen_surface, self.display_entities)
+    def add_entities_on_layer(self, l_name: str, entities: IEntity):
+        self.layers[l_name].display_entities += entities
 
-
-class GameScreen(Screen):
-    def __init__(self, camera: Camera) -> None:
-        super().__init__(camera)
-        pass
-
-
-class Game:
-    def __init__(self) -> None:
-        pygame.init()
-        # Окно игры: размер, позиция
-        self.surface = pygame.display.set_mode((ss.width, ss.height))
-        pygame.display.set_caption(ss.game_title)
-
-        self.FPS_clock = pygame.time.Clock()
-
-        self.is_game_run = True
-        self.player: Player = None
-        self.entities: list[IRenderable] = []
-
-    def event_tracking(self):
-        """Отслеживание событий"""
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.is_game_run = False  # "закрыть игру"
-            elif event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
-                self.player.event_tracking(event)
-
-    def run(self) -> None:
-        """Запуск игры"""
-        self.player = Player("images/bacteria.png")
-        self.entities.append(self.player)
-        self.entities.append(RasterEntity("images/bacteria.png"))
-        self.entities[1].position = Vector(100, 100)
-
-        self.camera = Camera(
-            Vector(10, 10),
-            Vector(ss.width - 100, ss.height - 100),
-            ss.camera_speed,
-            ss.camera_zoom,
-            self.player,
-        )
-        # Цикл игры
-        while self.is_game_run:
-            self.FPS_clock.tick(ss.FPS)
-            self.event_tracking()
-
-            for entity in self.entities:
-                entity.update(self.surface, self.entities)
-
-            self.surface.fill(ss.black)
-            self.camera.update_rendered(self.surface, self.entities)
-            # self.camera.update_display(self.surface, self.entities)
-
-            # Обновление экрана (всегда в конце цикла)
-            pygame.display.flip()
-
-        pygame.quit()
-
-
-if __name__ == "__main__":
-    new_game = Game()
-    new_game.run()
+    def render(self) -> None:
+        for l_name in self.sorted_layers:
+            self.layers[l_name].render(self.surface)
