@@ -5,19 +5,21 @@ from config import ButtonSettings as bs
 from config import PlayerSettings as ps
 
 
-class IEntity(ABC):
+class IRendered(ABC):
     @abstractmethod
     def draw(
         self, screen_surface: pygame.Surface, convert_position, zoomLevel: float
     ) -> None:
         pass
 
+
+class IPhysics(ABC):
     @abstractmethod
-    def update(self, entities: list["IEntity"]) -> None:
+    def update(self, entities: list["IPhysics"]) -> None:
         pass
 
 
-class RenderedRect(pygame.sprite.Sprite, IEntity):
+class RenderedRect(pygame.sprite.Sprite, IRendered):
     def __init__(self, position: Vector, size: Vector, color: tuple[int]):
         super().__init__()
         self.size = size
@@ -25,19 +27,17 @@ class RenderedRect(pygame.sprite.Sprite, IEntity):
         self.position = position
         self.rect = pygame.Rect(*position.pair(), *size.pair())
 
-    def update(self, entities: list[IEntity]):
-        self.rect.centerx = int(self.position.x)
-        self.rect.centery = int(self.position.y)
-
     def draw(self, screen_surface: pygame.Surface, convert_position, zoomLevel: float):
         size = self.size * zoomLevel
+        self.rect.centerx = int(self.position.x)
+        self.rect.centery = int(self.position.y)
         new_position: Vector = convert_position(self.position)
         pygame.draw.rect(
             screen_surface, self.color, pygame.Rect(*new_position.pair(), *size.pair())
         )
 
 
-class Bar(IEntity):
+class Bar(IRendered):
     def __init__(
         self, position: Vector, size: Vector, color: tuple[int], bg_color: tuple[int]
     ):
@@ -49,22 +49,18 @@ class Bar(IEntity):
             position + self.ident, size - 2 * self.ident, color
         )
 
-    def update(self, entities: list[IEntity]):
+    def draw(self, screen_surface: pygame.Surface, convert_position, zoomLevel: float):
         self.percent = max(0, min(self.percent, 1))
 
         self.bg_bar.position = self.position
-        self.bg_bar.update(entities)
-
         self.movable_bar.position = self.position + self.ident
         self.movable_bar.size.x = self.percent * (self.bg_bar.size.x - 2 * self.ident.x)
-        self.movable_bar.update(entities)
 
-    def draw(self, screen_surface: pygame.Surface, convert_position, zoomLevel: float):
         self.bg_bar.draw(screen_surface, convert_position, zoomLevel)
         self.movable_bar.draw(screen_surface, convert_position, zoomLevel)
 
 
-class RasterEntity(pygame.sprite.Sprite, IEntity):
+class RasterEntity(pygame.sprite.Sprite, IRendered, IPhysics):
     def __init__(self, image_path: str) -> None:
         super().__init__()
         self.image = pygame.image.load(image_path)
@@ -72,12 +68,10 @@ class RasterEntity(pygame.sprite.Sprite, IEntity):
         self.rect = self.image.get_rect()
         self.size = Vector(self.rect.w, self.rect.h)
 
-    def update(self, entities: list[IEntity]):
-        self.rect.centerx = int(self.position.x)
-        self.rect.centery = int(self.position.y)
-
     def draw(self, screen_surface: pygame.Surface, convert_position, zoomLevel: float):
         size = self.size * zoomLevel
+        self.rect.centerx = int(self.position.x)
+        self.rect.centery = int(self.position.y)
         new_position: Vector = convert_position(self.position)
         image = pygame.transform.scale(self.image, size.pair())
         screen_surface.blit(image, new_position.pair())
@@ -89,12 +83,8 @@ class Actor(RasterEntity):
         self.move_direction = Vector(0, 0)  # может содержать только -1, 0, 1.
         self.speed = ps.speed
 
-    def move(self, entities: list[RasterEntity]):
+    def update(self, entities: list["IPhysics"]) -> None:
         self.position += self.move_direction.get_normalization() * self.speed
-
-    def update(self, entities: list[RasterEntity]):
-        self.move(entities)
-        super().update(entities)
 
 
 class Player(Actor):
@@ -125,14 +115,14 @@ class Camera:
         self.world_position = Vector(0.0, 0.0)
 
         self.speed = 0.0
-        self.trackedEntity: IEntity = None
+        self.trackedEntity: IRendered = None
 
-    def set_tracked_entity(self, entity: IEntity, speed=0.0):
+    def set_tracked_entity(self, entity: IRendered, speed=0.0):
         assert 0 <= speed <= 1
         self.speed = speed
         self.trackedEntity = entity
 
-    def render(self, screen_surface: pygame.Surface, entities: list[IEntity]) -> None:
+    def render(self, screen_surface: pygame.Surface, entities: list[IRendered]) -> None:
         position_on_camera = lambda position: position
         if self.trackedEntity is not None:
             a = self.speed
@@ -160,10 +150,13 @@ class Layer:
     def __init__(self, camera: Camera, z_index: int = 1) -> None:
         self.z_index = z_index
         self.camera = camera
-        self.display_entities: list[IEntity] = []
+        self.display_entities: list[IRendered] = []
 
     def render(self, screen_surface: pygame.Surface) -> None:
         self.camera.render(screen_surface, self.display_entities)
+
+    def set_tracked_entity(self, entity: IRendered, speed=0.0):
+        self.camera.set_tracked_entity(entity, speed)
 
 
 class Screen:
@@ -178,12 +171,26 @@ class Screen:
             zip(*sorted(self.layers.items(), key=lambda it: it[1].z_index))
         )[0]
 
-    def add_entity_on_layer(self, l_name: str, entity: IEntity):
+    def add_entity_on_layer(self, l_name: str, entity: IRendered):
         self.layers[l_name].display_entities.append(entity)
 
-    def add_entities_on_layer(self, l_name: str, entities: IEntity):
+    def add_entities_on_layer(self, l_name: str, entities: IRendered):
         self.layers[l_name].display_entities += entities
+
+    def set_tracked_entity(self, l_name: str, entity: IRendered, speed=0.0):
+        self.layers[l_name].set_tracked_entity(entity, speed)
 
     def render(self) -> None:
         for l_name in self.sorted_layers:
             self.layers[l_name].render(self.surface)
+
+    def get_entities(self, l_name: str):
+        return self.layers[l_name].display_entities
+
+    @abstractmethod
+    def event_tracking(self, event: pygame.event.Event):
+        pass
+
+    @abstractmethod
+    def update(self):
+        pass
