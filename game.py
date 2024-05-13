@@ -1,87 +1,102 @@
-import pygame
+import pygame as pg
 
 from engine import Actor, Bar, Player, RenderedRect, Screen
 from config import ScreenSettings as ss
 from config import Colors as crl
 from geometry.vector import Vector
+from enum import Enum
 
 
 class GameScreen(Screen):
-    def __init__(self, surface: pygame.Surface) -> None:
+    def __init__(self, surface: pg.Surface) -> None:
         super().__init__(surface)
+        self.LN = Enum("LN", ["BG", "MAP", "INTERFACE"])  # Layers Names
 
-        # ADD background
+        # BackGround
         w, h, i = surface.get_width(), surface.get_height(), 5
-        self.add_layer("bg", pygame.Rect(i, i, w - 2 * i, h - 2 * i))
+        self.add_layer(self.LN.BG, pg.Rect(i, i, w - 2 * i, h - 2 * i))
         bg = RenderedRect(Vector(i, i), Vector(w, h), ss.bg_color)
-        self.add_entity_on_layer("bg", bg)
+        self.add_entity_on_layer(self.LN.BG, bg)
 
-        # ADD map
-        self.add_layer("map", pygame.Rect(i, i, w - 2 * i, h - 2 * i))
+        # MAP
+        self.add_layer(self.LN.MAP, pg.Rect(i, i, w - 2 * i, h - 2 * i))
 
-        self.player = Player("images/bacteria.png")
-        self.add_entity_on_layer("map", self.player)
-        self.set_tracked_entity("map", self.player, ss.camera_speed)
+        self.player = Player("images/bacteria_green.png")
+        self.add_entity_on_layer(self.LN.MAP, self.player)
+        self.set_tracked_entity(self.LN.MAP, self.player, ss.camera_speed)
 
-        enemy = Actor("images/bacteria.png")
-        enemy.position = Vector(90, 20)
-        self.add_entity_on_layer("map", enemy)
+        enemy1 = Actor("images/bacteria_orange.png")
+        enemy1.set_position(Vector(90, 20))
+        enemy2 = Actor("images/bacteria_red.png")
+        enemy2.set_position(Vector(77, 100))
+        self.add_entities_on_layer(self.LN.MAP, [enemy1, enemy2])
 
         rect = RenderedRect(Vector(30, 70), Vector(30, 10), ss.bg_color)
-        rect.position = Vector(100, 100)
-        self.add_entity_on_layer("map", rect)
+        rect.set_position(Vector(100, 100))
+        self.add_entity_on_layer(self.LN.MAP, rect)
 
-        # ADD interface
-        self.add_layer("interface", pygame.Rect(i, i, w - 2 * i, h - 2 * i))
+        # INTERFACE
+        self.add_layer(self.LN.INTERFACE, pg.Rect(i, i, w - 2 * i, h - 2 * i))
 
         barHP = Bar(Vector(30, 30), Vector(50, 10), crl.green, crl.silver)
         barHP.percent = 0.8
-        self.add_entity_on_layer("interface", barHP)
+        self.add_entity_on_layer(self.LN.INTERFACE, barHP)
 
-    def event_tracking(self, event: pygame.event.Event):
+        self.set_camera_zoom(ss.camera_zoom)
+
+    def event_tracking(self, event: pg.event.Event):
         """Отслеживание событий"""
         self.player.event_tracking(event)
 
     def update(self):
-        self.player.update(self.get_entities("map"))
+        self.player.update(self.get_entities(self.LN.MAP))
+
+    def set_camera_zoom(self, zoomLevel: float):
+        for layer_name in [self.LN.MAP, self.LN.BG]:
+            self.layers[layer_name].set_zoom(zoomLevel)
 
 
 class Game:
     def __init__(self) -> None:
-        pygame.init()
+        pg.init()
         # Окно игры: размер, позиция
-        self.surface = pygame.display.set_mode((ss.width, ss.height))
-        pygame.display.set_caption(ss.game_title)
-        self.FPS_clock = pygame.time.Clock()
+        self.surface = pg.display.set_mode((ss.width, ss.height))
+        pg.display.set_caption(ss.game_title)
+        self.FPS_clock = pg.time.Clock()
 
         self.is_game_run = True
         self.game_screen = GameScreen(self.surface)
 
-    def event_tracking(self):
+    def event_tracking(self, screen: Screen):
         """Отслеживание событий"""
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
                 self.is_game_run = False  # "закрыть игру"
             elif self.is_game_run:
-                self.game_screen.event_tracking(event)
+                screen.event_tracking(event)
 
     def run(self) -> None:
-        """Запуск игры"""
+        """Запуск цикла игры, который
+        1) считывает события
+        2) обновляет объекты
+        3) рендерит объекты
+        """
 
+        main_screen: Screen = self.game_screen
         # Цикл игры
         while self.is_game_run:
             self.FPS_clock.tick(ss.FPS)
-            self.event_tracking()
+            self.event_tracking(main_screen)
 
-            self.game_screen.update()
+            main_screen.update()
 
             self.surface.fill(crl.pink)
-            self.game_screen.render()
+            main_screen.render()
 
             # Обновление экрана (всегда в конце цикла)
-            pygame.display.flip()
+            pg.display.flip()
 
-        pygame.quit()
+        pg.quit()
 
 
 if __name__ == "__main__":
