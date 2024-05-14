@@ -29,11 +29,12 @@ class GameScreen(Screen):
         enemy1.set_position(Vector(90, 20))
         enemy2 = Actor("images/bacteria_red.png")
         enemy2.set_position(Vector(77, 100))
+        # enemy1.move_direction = Vector(-1, -1)
         self.add_entities_on_layer(self.LN.MAP, [enemy1, enemy2])
 
-        rect = RenderedRect(Vector(30, 70), Vector(30, 10), ss.bg_color)
-        rect.set_position(Vector(100, 100))
-        self.add_entity_on_layer(self.LN.MAP, rect)
+        # rect = RenderedRect(Vector(30, 70), Vector(30, 10), ss.bg_color)
+        # rect.set_position(Vector(100, 100))
+        # self.add_entity_on_layer(self.LN.MAP, rect)
 
         # INTERFACE
         self.add_layer(self.LN.INTERFACE, pg.Rect(i, i, w - 2 * i, h - 2 * i))
@@ -49,7 +50,9 @@ class GameScreen(Screen):
         self.player.event_tracking(event)
 
     def update(self):
-        self.player.update(self.get_entities(self.LN.MAP))
+        # self.player.update(self.get_entities(self.LN.MAP))
+        for entity in self.get_entities(self.LN.MAP):
+            entity.update(self.get_entities(self.LN.MAP))
 
     def set_camera_zoom(self, zoomLevel: float):
         for layer_name in [self.LN.MAP, self.LN.BG]:
@@ -62,7 +65,6 @@ class Game:
         # Окно игры: размер, позиция
         self.surface = pg.display.set_mode((ss.width, ss.height))
         pg.display.set_caption(ss.game_title)
-        self.FPS_clock = pg.time.Clock()
 
         self.is_game_run = True
         self.game_screen = GameScreen(self.surface)
@@ -85,7 +87,7 @@ class Game:
         main_screen: Screen = self.game_screen
         # Цикл игры
         while self.is_game_run:
-            self.FPS_clock.tick(ss.FPS)
+            ss.FPS_clock.tick(ss.FPS)
             self.event_tracking(main_screen)
 
             main_screen.update()

@@ -2,8 +2,9 @@ from abc import abstractmethod, ABC
 import pygame as pg
 from geometry.vector import Vector
 from config import ButtonSettings as bs
-from config import PlayerSettings as ps
-# TODO: перенести логику передвижения вне отрисовки
+from config import DefaultActorSettings as das
+from config import ScreenSettings as ss
+
 
 class IRendered(ABC):
     @abstractmethod
@@ -13,10 +14,6 @@ class IRendered(ABC):
         """convert_position - функция для преобразования позиции объекта в его позицию на экране"""
         pass
 
-    @abstractmethod
-    def set_position(self, new_position: Vector):
-        pass
-
 
 class IPhysics(ABC):
     @abstractmethod
@@ -24,90 +21,116 @@ class IPhysics(ABC):
         pass
 
 
-class RenderedRect(pg.sprite.Sprite, IRendered):
-    def __init__(self, position: Vector, size: Vector, color: tuple[int]):
+class Entity(pg.sprite.Sprite):
+    def __init__(self, position: Vector, size: Vector) -> None:
         super().__init__()
         self.size = size
-        self.color = color
-        self.position = position
         self.rect = pg.Rect(*position.pair(), *size.pair())
+        self.set_position(position)
+
+    def set_position(self, new_position: Vector):
+        self.__position = new_position
+        self.rect.centerx = int(self.__position.x)
+        self.rect.centery = int(self.__position.y)
+
+    def move_position(self, delta_position: Vector):
+        self.set_position(self.__position + ss.FPS_clock.get_time() * delta_position)
+
+    def get_position(self):
+        return self.__position
+
+    @staticmethod
+    def collide_entities(entity, entities: list["Entity"]) -> list["Entity"]:
+        """entities: сущности с которыми может пересекаться объект
+        return: сущности с которыми пересекается объект (исключая себя)"""
+        collide_group = pg.sprite.spritecollide(entity, entities, False)
+        if entity in collide_group:
+            collide_group.remove(entity)
+        return collide_group
+
+
+class RenderedRect(Entity, IRendered):
+    def __init__(self, position: Vector, size: Vector, color: tuple[int]):
+        super().__init__(position, size)
+        self.color = color
 
     def draw(self, screen_surface: pg.Surface, convert_position, zoomLevel: float):
         size = self.size * zoomLevel
-        self.rect.centerx = int(self.position.x)
-        self.rect.centery = int(self.position.y)
-        new_position: Vector = convert_position(self.position)
+        position_on_screen: Vector = convert_position(self.get_position())
         pg.draw.rect(
-            screen_surface, self.color, pg.Rect(*new_position.pair(), *size.pair())
+            screen_surface,
+            self.color,
+            pg.Rect(*position_on_screen.pair(), *size.pair()),
         )
 
-    def set_position(self, new_position: Vector):
-        self.position = new_position
 
-
-class Bar(IRendered):
+class Bar(Entity, IRendered):
     """Шкала здоровья/маны и прочего"""
 
     def __init__(
         self, position: Vector, size: Vector, color: tuple[int], bg_color: tuple[int]
     ):
+        super().__init__(position, size)
         self.percent = 1
-        self.position = position
+        self.ident = 0.1 * Vector(self.size.y, self.size.y)
         self.bg_bar = RenderedRect(position, size, bg_color)
-        self.ident = Vector(size.y * 0.1, size.y * 0.1)
         self.movable_bar = RenderedRect(
             position + self.ident, size - 2 * self.ident, color
         )
 
     def draw(self, screen_surface: pg.Surface, convert_position, zoomLevel: float):
-        self.percent = max(0, min(self.percent, 1))
-
-        self.bg_bar.position = self.position
-        self.movable_bar.position = self.position + self.ident
+        self.bg_bar.set_position(self.get_position())
+        self.movable_bar.set_position(self.get_position() + self.ident)
         self.movable_bar.size.x = self.percent * (self.bg_bar.size.x - 2 * self.ident.x)
 
         self.bg_bar.draw(screen_surface, convert_position, zoomLevel)
         self.movable_bar.draw(screen_surface, convert_position, zoomLevel)
 
-    def set_position(self, new_position: Vector):
-        self.position = new_position
+    def update(self, percent: float):
+        self.percent = max(0, min(percent, 1))
 
 
-class RasterEntity(pg.sprite.Sprite, IRendered):
+class RasterEntity(Entity, IRendered):
     def __init__(self, image_path: str) -> None:
-        super().__init__()
         self.image = pg.image.load(image_path)
-        self.position = Vector(0, 0)
-        self.rect = self.image.get_rect()
-        self.size = Vector(self.rect.w, self.rect.h)
+        position = Vector(0, 0)
+        size = Vector(self.image.get_width(), self.image.get_height())
+        super().__init__(position, size)
 
     def draw(self, screen_surface: pg.Surface, convert_position, zoomLevel: float):
         size = self.size * zoomLevel
-        self.rect.centerx = int(self.position.x)
-        self.rect.centery = int(self.position.y)
-        new_position: Vector = convert_position(self.position)
+        position_on_screen: Vector = convert_position(self.get_position())
         image = pg.transform.scale(self.image, size.pair())
-        screen_surface.blit(image, new_position.pair())
-
-    def set_position(self, new_position: Vector):
-        self.position = new_position
+        screen_surface.blit(image, position_on_screen.pair())
 
 
 class Actor(RasterEntity, IPhysics):
     def __init__(self, image_path: str) -> None:
         super().__init__(image_path)
         self.move_direction = Vector(0, 0)  # задаёт только направление
-        self.speed = ps.speed
+        self.speed = das.speed
+        self.weight = das.weight
+
+    def move(self, entities: list["IPhysics"]) -> None:
+        delta_position = self.move_direction.get_normalization() * self.speed
+        self.move_position(delta_position)
+        # проверка на столкновение
+        collide_group = Actor.collide_entities(self, entities)
+        if not collide_group:
+            return
+        print("collision")
+        self.move_position(-delta_position)
+        # for entity in collide_group:
 
     def update(self, entities: list["IPhysics"]) -> None:
-        delta_position = self.move_direction.get_normalization() * self.speed
-        self.position += delta_position
-        for entity in entities:
-            if self == entity:
-                continue
-            if pg.sprite.collide_rect(self, entity):
-                print(entity.position)
-                self.position -= 2*delta_position
+        self.move(entities)
+
+    # for entity in entities:
+    #     if self == entity:
+    #         continue
+    #     if pg.sprite.collide_rect(self, entity):
+    #         print(entity.position)
+    #         self.position -= 2 * delta_position
 
 
 class Player(Actor):
@@ -153,7 +176,7 @@ class Camera:
             position = Vector(self.rect.x, self.rect.y)
             size = Vector(self.rect.width, self.rect.height)
 
-            target_position = entity.position + 0.5 * entity.size
+            target_position = entity.get_position() + 0.5 * entity.size
             self.world_position = self.world_position * (1 - a) + target_position * a
             offset = position + 0.5 * size - (self.zoomLevel * self.world_position)
             position_on_camera = lambda position: (self.zoomLevel * position) + offset
@@ -178,7 +201,7 @@ class Layer:
     def __init__(self, camera: Camera, z_index: int = 1) -> None:
         self.z_index = z_index
         self.camera = camera
-        self.display_entities: list[IRendered] = []
+        self.display_entities = pg.sprite.Group()
 
     def render(self, screen_surface: pg.Surface) -> None:
         self.camera.render(screen_surface, self.display_entities)
@@ -187,10 +210,11 @@ class Layer:
         self.camera.set_tracked_entity(entity, speed)
 
     def add_entity(self, entity: IRendered):
-        self.display_entities.append(entity)
+        self.display_entities.add(entity)
 
     def add_entities(self, entities: list[IRendered]):
-        self.display_entities += entities
+        for entity in entities:
+            self.add_entity(entity)
 
     def set_zoom(self, new_zoom_level: float):
         self.camera.set_zoom(new_zoom_level)
@@ -223,7 +247,7 @@ class Screen:
         for l_name in self.sorted_layers:
             self.layers[l_name].render(self.surface)
 
-    def get_entities(self, l_name: str):
+    def get_entities(self, l_name: str) -> list[Entity]:
         return self.layers[l_name].display_entities
 
     @abstractmethod

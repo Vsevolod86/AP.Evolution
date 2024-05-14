@@ -1,5 +1,5 @@
 # конфигурации - поля классов
-import pygame
+import pygame as pg
 
 
 class Colors:
@@ -15,20 +15,23 @@ class ScreenSettings:
     width, height = 500, 500
     game_title = "Evolution"
     bg_color = Colors.turquoise
-    FPS = 30
+    FPS = 3000
     zoom = 1
     camera_speed = 0.05  # the speed of the camera keeping up with the player
     camera_zoom = 2
 
+    FPS_clock = pg.time.Clock()
+
 
 class ButtonSettings:
     move_buttons = {
-        "right": pygame.K_d,
-        "left": pygame.K_a,
-        "up": pygame.K_w,
-        "down": pygame.K_s,
+        "right": pg.K_d,
+        "left": pg.K_a,
+        "up": pg.K_w,
+        "down": pg.K_s,
     }
 
 
-class PlayerSettings:
-    speed = 2.5
+class DefaultActorSettings:
+    speed = 0.075
+    weight = 10
