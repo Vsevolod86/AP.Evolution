@@ -21,7 +21,7 @@ class IPhysics(ABC):
         pass
 
 
-class Entity(pg.sprite.Sprite):
+class Entity(pg.sprite.Sprite, IRendered):
     def __init__(self, position: Vector, size: Vector) -> None:
         super().__init__()
         self.size = size
@@ -33,11 +33,15 @@ class Entity(pg.sprite.Sprite):
         self.rect.centerx = int(self.__position.x)
         self.rect.centery = int(self.__position.y)
 
-    def move_position(self, delta_position: Vector):
+    def shift_position(self, delta_position: Vector):
         self.set_position(self.__position + ss.FPS_clock.get_time() * delta_position)
 
     def get_position(self):
         return self.__position
+
+    @abstractmethod
+    def draw(self, screen_surface: pg.Surface, convert_position, zoomLevel: float):
+        pass
 
     @staticmethod
     def collide_entities(entity, entities: list["Entity"]) -> list["Entity"]:
@@ -49,7 +53,7 @@ class Entity(pg.sprite.Sprite):
         return collide_group
 
 
-class RenderedRect(Entity, IRendered):
+class RenderedRect(Entity):
     def __init__(self, position: Vector, size: Vector, color: tuple[int]):
         super().__init__(position, size)
         self.color = color
@@ -64,7 +68,7 @@ class RenderedRect(Entity, IRendered):
         )
 
 
-class Bar(Entity, IRendered):
+class Bar(Entity):
     """Шкала здоровья/маны и прочего"""
 
     def __init__(
@@ -90,9 +94,10 @@ class Bar(Entity, IRendered):
         self.percent = max(0, min(percent, 1))
 
 
-class RasterEntity(Entity, IRendered):
-    def __init__(self, image_path: str) -> None:
+class PhysicsEntity(Entity, IPhysics):
+    def __init__(self, image_path: str, is_movable: bool) -> None:
         self.image = pg.image.load(image_path)
+        self.is_movable = is_movable
         position = Vector(0, 0)
         size = Vector(self.image.get_width(), self.image.get_height())
         super().__init__(position, size)
@@ -104,36 +109,39 @@ class RasterEntity(Entity, IRendered):
         screen_surface.blit(image, position_on_screen.pair())
 
 
-class Actor(RasterEntity, IPhysics):
+class StaticEntity(PhysicsEntity):
+    def __init__(self, image_path: str, is_interactive: bool) -> None:
+        self.is_interactive = is_interactive
+        super().__init__(image_path, False)
+
+
+class MovableEntity(PhysicsEntity):
     def __init__(self, image_path: str) -> None:
-        super().__init__(image_path)
+        super().__init__(image_path, True)
         self.move_direction = Vector(0, 0)  # задаёт только направление
         self.speed = das.speed
         self.weight = das.weight
 
-    def move(self, entities: list["IPhysics"]) -> None:
+    def move(self, entities: list[PhysicsEntity]) -> None:
         delta_position = self.move_direction.get_normalization() * self.speed
-        self.move_position(delta_position)
+        self.shift_position(delta_position)
         # проверка на столкновение
-        collide_group = Actor.collide_entities(self, entities)
+        collide_group = MovableEntity.collide_entities(self, entities)
         if not collide_group:
             return
         print("collision")
-        self.move_position(-delta_position)
-        # for entity in collide_group:
+        self.shift_position(-delta_position)
 
-    def update(self, entities: list["IPhysics"]) -> None:
+    def update(self, entities: list[PhysicsEntity]) -> None:
         self.move(entities)
 
     # for entity in entities:
     #     if self == entity:
     #         continue
     #     if pg.sprite.collide_rect(self, entity):
-    #         print(entity.position)
-    #         self.position -= 2 * delta_position
 
 
-class Player(Actor):
+class Player(MovableEntity):
     def event_tracking(self, event: pg.event.Event):
         if event.type == pg.KEYDOWN or event.type == pg.KEYUP:
             if event.key in bs.move_buttons.values():
@@ -161,14 +169,14 @@ class Camera:
         self.world_position = Vector(0.0, 0.0)
 
         self.speed = 0.0
-        self.trackedEntity: IRendered = None
+        self.trackedEntity: Entity = None
 
-    def set_tracked_entity(self, entity: IRendered, speed=0.0):
+    def set_tracked_entity(self, entity: Entity, speed=0.0):
         assert 0 <= speed <= 1
         self.speed = speed
         self.trackedEntity = entity
 
-    def render(self, screen_surface: pg.Surface, entities: list[IRendered]) -> None:
+    def render(self, screen_surface: pg.Surface, entities: list[Entity]) -> None:
         position_on_camera = lambda position: position
         if self.trackedEntity is not None:
             a = self.speed
@@ -206,13 +214,13 @@ class Layer:
     def render(self, screen_surface: pg.Surface) -> None:
         self.camera.render(screen_surface, self.display_entities)
 
-    def set_tracked_entity(self, entity: IRendered, speed=0.0):
+    def set_tracked_entity(self, entity: Entity, speed=0.0):
         self.camera.set_tracked_entity(entity, speed)
 
-    def add_entity(self, entity: IRendered):
+    def add_entity(self, entity: Entity):
         self.display_entities.add(entity)
 
-    def add_entities(self, entities: list[IRendered]):
+    def add_entities(self, entities: list[Entity]):
         for entity in entities:
             self.add_entity(entity)
 
@@ -234,13 +242,13 @@ class Screen:
             zip(*sorted(self.layers.items(), key=lambda it: it[1].z_index))
         )[0]
 
-    def add_entity_on_layer(self, l_name: str, entity: IRendered):
+    def add_entity_on_layer(self, l_name: str, entity: Entity):
         self.layers[l_name].add_entity(entity)
 
-    def add_entities_on_layer(self, l_name: str, entities: list[IRendered]):
+    def add_entities_on_layer(self, l_name: str, entities: list[Entity]):
         self.layers[l_name].add_entities(entities)
 
-    def set_tracked_entity(self, l_name: str, entity: IRendered, speed=0.0):
+    def set_tracked_entity(self, l_name: str, entity: Entity, speed=0.0):
         self.layers[l_name].set_tracked_entity(entity, speed)
 
     def render(self) -> None:

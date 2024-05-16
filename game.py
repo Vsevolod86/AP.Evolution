@@ -1,6 +1,6 @@
 import pygame as pg
 
-from engine import Actor, Bar, Player, RenderedRect, Screen
+from engine import MovableEntity, Bar, Player, RenderedRect, Screen
 from config import ScreenSettings as ss
 from config import Colors as crl
 from geometry.vector import Vector
@@ -25,9 +25,9 @@ class GameScreen(Screen):
         self.add_entity_on_layer(self.LN.MAP, self.player)
         self.set_tracked_entity(self.LN.MAP, self.player, ss.camera_speed)
 
-        enemy1 = Actor("images/bacteria_orange.png")
+        enemy1 = MovableEntity("images/bacteria_orange.png")
         enemy1.set_position(Vector(90, 20))
-        enemy2 = Actor("images/bacteria_red.png")
+        enemy2 = MovableEntity("images/bacteria_red.png")
         enemy2.set_position(Vector(77, 100))
         # enemy1.move_direction = Vector(-1, -1)
         self.add_entities_on_layer(self.LN.MAP, [enemy1, enemy2])
