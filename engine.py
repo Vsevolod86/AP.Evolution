@@ -111,14 +111,44 @@ class PhysicsEntity(Entity, IPhysics):
         velocity=Vector(0, 0),
         acceleration=Vector(0, 0),
     ) -> None:
-        self.image = pg.image.load(image_path)
-        position = Vector(0, 0)
-        size = Vector(self.image.get_width(), self.image.get_height())
-        super().__init__(position, size, name)
-        self.mass = mass
         self.is_movable = is_movable
+        self.mass = mass
         self.velocity = velocity
         self.acceleration = acceleration
+        self.image = pg.image.load(image_path)
+        size = Vector(self.image.get_width(), self.image.get_height())
+        super().__init__(Vector(0, 0), size, name)
+
+    def move(self):
+        """Обновление скорости и позиции"""
+        self.velocity += self.acceleration
+        self.shift_position(self.velocity)
+
+    def apply_force(self, force: Vector):
+        """Применение силы к объекту"""
+        self.acceleration += force / self.mass
+
+    def update(self, entities: list["PhysicsEntity"]) -> None:
+        if self.is_movable:
+            self.move()
+        # проверка коллизий
+        collide_group = Entity.collide_entities(self, entities)
+        for entity in collide_group:
+            print("collision")
+            PhysicsEntity.handle_collision(self, entity)
+
+    @staticmethod
+    def handle_collision(obj1: "PhysicsEntity", obj2: "PhysicsEntity"):
+        new_velocity = lambda v1, m1, v2, m2: ((m1 - m2) * v1 + 2 * m2 * v2) / (m1 + m2)
+        if obj1.is_movable and obj2.is_movable:
+            v1 = obj1.velocity
+            v2 = obj2.velocity
+            m1 = obj1.mass
+            m2 = obj2.mass
+            obj1.velocity = new_velocity(v1, m1, v2, m2)
+            obj2.velocity = new_velocity(v2, m2, v1, m1)
+        else:
+            obj1.shift_position(-obj1.velocity)
 
     def draw(self, screen_surface: pg.Surface, convert_position, zoomLevel: float):
         size = self.size * zoomLevel
@@ -127,52 +157,26 @@ class PhysicsEntity(Entity, IPhysics):
         screen_surface.blit(image, position_on_screen.pair())
 
 
-class StaticEntity(PhysicsEntity):
-    def __init__(self, image_path: str, is_interactive: bool) -> None:
-        self.is_interactive = is_interactive
-        super().__init__(image_path, False)
-
-
 class MovableEntity(PhysicsEntity):
     def __init__(self, image_path: str, name="MovableEntity") -> None:
         super().__init__(image_path, True, name)
-        self.move_direction = Vector(0, 0)  # задаёт только направление
+        self.velocity = Vector(0, 0)  # задаёт только направление
         self.speed = das.speed
-        self.mass = das.mass
-
-    def move(self, entities: list[PhysicsEntity]) -> None:
-        delta_position = self.move_direction.get_normalization() * self.speed
-        self.shift_position(delta_position)
-        # проверка на столкновение
-        collide_group = MovableEntity.collide_entities(self, entities)
-        if not collide_group:
-            return
-        print("collision")
-        self.shift_position(-delta_position)
-
-    def update(self, entities: list[PhysicsEntity]) -> None:
-        self.move(entities)
-
-    # for entity in entities:
-    #     if self == entity:
-    #         continue
-    #     if pg.sprite.collide_rect(self, entity):
 
 
 class Player(MovableEntity):
     def event_tracking(self, event: pg.event.Event):
         if event.type == pg.KEYDOWN or event.type == pg.KEYUP:
             if event.key in bs.move_buttons.values():
-                direct = 1 if (event.type == pg.KEYDOWN) else -1
+                direct = int(event.type == pg.KEYDOWN) * self.speed
                 if event.key == bs.move_buttons["right"]:
-                    self.move_direction.x += direct
+                    self.velocity.x = direct
                 elif event.key == bs.move_buttons["left"]:
-                    self.move_direction.x -= direct
+                    self.velocity.x = -direct
                 elif event.key == bs.move_buttons["up"]:
-                    self.move_direction.y -= direct
+                    self.velocity.y = -direct
                 elif event.key == bs.move_buttons["down"]:
-                    self.move_direction.y += direct
-                self.move_direction = self.move_direction.sign()
+                    self.velocity.y = direct
 
 
 class Camera:
