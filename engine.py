@@ -4,6 +4,7 @@ from geometry.vector import Vector
 from config import ButtonSettings as bs
 from config import DefaultActorSettings as das
 from config import ScreenSettings as ss
+from config import PhysicsSettings as ps
 
 
 class IRendered(ABC):
@@ -55,7 +56,7 @@ class Entity(pg.sprite.Sprite, IRendered):
 
 
 class RenderedRect(Entity):
-    def __init__(self, position: Vector, size: Vector, color: tuple[int], name = "Rect"):
+    def __init__(self, position: Vector, size: Vector, color: tuple[int], name="Rect"):
         super().__init__(position, size, name)
         self.color = color
 
@@ -101,13 +102,23 @@ class Bar(Entity):
 
 
 class PhysicsEntity(Entity, IPhysics):
-    def __init__(self, image_path: str, is_movable: bool,
-        name = "PhysicsEntity") -> None:
+    def __init__(
+        self,
+        image_path: str,
+        is_movable: bool,
+        name="PhysicsEntity",
+        mass=1.0,
+        velocity=Vector(0, 0),
+        acceleration=Vector(0, 0),
+    ) -> None:
         self.image = pg.image.load(image_path)
-        self.is_movable = is_movable
         position = Vector(0, 0)
         size = Vector(self.image.get_width(), self.image.get_height())
         super().__init__(position, size, name)
+        self.mass = mass
+        self.is_movable = is_movable
+        self.velocity = velocity
+        self.acceleration = acceleration
 
     def draw(self, screen_surface: pg.Surface, convert_position, zoomLevel: float):
         size = self.size * zoomLevel
@@ -123,11 +134,11 @@ class StaticEntity(PhysicsEntity):
 
 
 class MovableEntity(PhysicsEntity):
-    def __init__(self, image_path: str, name = "MovableEntity") -> None:
+    def __init__(self, image_path: str, name="MovableEntity") -> None:
         super().__init__(image_path, True, name)
         self.move_direction = Vector(0, 0)  # задаёт только направление
         self.speed = das.speed
-        self.weight = das.weight
+        self.mass = das.mass
 
     def move(self, entities: list[PhysicsEntity]) -> None:
         delta_position = self.move_direction.get_normalization() * self.speed
@@ -186,14 +197,14 @@ class Camera:
     def render(self, screen_surface: pg.Surface, entities: list[Entity]) -> None:
         position_on_camera = lambda position: position
         if self.trackedEntity is not None:
-            a = self.speed
+            s = self.speed
             entity = self.trackedEntity
             position = Vector(self.rect.x, self.rect.y)
             size = Vector(self.rect.width, self.rect.height)
 
-            target_position = entity.get_position() + 0.5 * entity.size
-            self.world_position = self.world_position * (1 - a) + target_position * a
-            offset = position + 0.5 * size - (self.zoomLevel * self.world_position)
+            target_position = entity.get_position() + entity.size / 2
+            self.world_position = self.world_position * (1 - s) + target_position * s
+            offset = position + size / 2 - (self.zoomLevel * self.world_position)
             position_on_camera = lambda position: (self.zoomLevel * position) + offset
 
         # START render
