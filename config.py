@@ -15,9 +15,9 @@ class ScreenSettings:
     width, height = 500, 500
     game_title = "Evolution"
     bg_color = Colors.turquoise
-    FPS = 3000
+    FPS = 30
     zoom = 1
-    camera_speed = 0.05  # the speed of the camera keeping up with the player
+    camera_speed = 1  # the speed of the camera keeping up with the player
     camera_zoom = 2
 
     FPS_clock = pg.time.Clock()
@@ -33,5 +33,10 @@ class ButtonSettings:
 
 
 class DefaultActorSettings:
-    speed = 0.075
+    speed = 0.1
+    mass = 10
     weight = 10
+
+
+class PhysicsSettings:
+    friction_coefficient = 0.1

@@ -38,6 +38,13 @@ class Vector:
         self.y *= scalar
         return self
 
+    def __truediv__(self, scalar: float) -> "Vector":  # /
+        assert scalar != 0
+        return Vector(self.x / scalar, self.y / scalar)
+
+    def __rtruediv__(self, scalar: float) -> "Vector":  # /
+        return self / scalar
+
     def __itruediv__(self, scalar):  # /=
         self.x /= scalar
         self.y /= scalar

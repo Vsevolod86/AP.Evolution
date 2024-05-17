@@ -22,9 +22,10 @@ class IPhysics(ABC):
 
 
 class Entity(pg.sprite.Sprite, IRendered):
-    def __init__(self, position: Vector, size: Vector) -> None:
+    def __init__(self, position: Vector, size: Vector, name="") -> None:
         super().__init__()
         self.size = size
+        self.name = name
         self.rect = pg.Rect(*position.pair(), *size.pair())
         self.set_position(position)
 
@@ -54,8 +55,8 @@ class Entity(pg.sprite.Sprite, IRendered):
 
 
 class RenderedRect(Entity):
-    def __init__(self, position: Vector, size: Vector, color: tuple[int]):
-        super().__init__(position, size)
+    def __init__(self, position: Vector, size: Vector, color: tuple[int], name = "Rect"):
+        super().__init__(position, size, name)
         self.color = color
 
     def draw(self, screen_surface: pg.Surface, convert_position, zoomLevel: float):
@@ -72,9 +73,14 @@ class Bar(Entity):
     """Шкала здоровья/маны и прочего"""
 
     def __init__(
-        self, position: Vector, size: Vector, color: tuple[int], bg_color: tuple[int]
+        self,
+        position: Vector,
+        size: Vector,
+        color: tuple[int],
+        bg_color: tuple[int],
+        name="Bar",
     ):
-        super().__init__(position, size)
+        super().__init__(position, size, name)
         self.percent = 1
         self.ident = 0.1 * Vector(self.size.y, self.size.y)
         self.bg_bar = RenderedRect(position, size, bg_color)
@@ -95,12 +101,13 @@ class Bar(Entity):
 
 
 class PhysicsEntity(Entity, IPhysics):
-    def __init__(self, image_path: str, is_movable: bool) -> None:
+    def __init__(self, image_path: str, is_movable: bool,
+        name = "PhysicsEntity") -> None:
         self.image = pg.image.load(image_path)
         self.is_movable = is_movable
         position = Vector(0, 0)
         size = Vector(self.image.get_width(), self.image.get_height())
-        super().__init__(position, size)
+        super().__init__(position, size, name)
 
     def draw(self, screen_surface: pg.Surface, convert_position, zoomLevel: float):
         size = self.size * zoomLevel
@@ -116,8 +123,8 @@ class StaticEntity(PhysicsEntity):
 
 
 class MovableEntity(PhysicsEntity):
-    def __init__(self, image_path: str) -> None:
-        super().__init__(image_path, True)
+    def __init__(self, image_path: str, name = "MovableEntity") -> None:
+        super().__init__(image_path, True, name)
         self.move_direction = Vector(0, 0)  # задаёт только направление
         self.speed = das.speed
         self.weight = das.weight

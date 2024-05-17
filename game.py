@@ -21,13 +21,13 @@ class GameScreen(Screen):
         # MAP
         self.add_layer(self.LN.MAP, pg.Rect(i, i, w - 2 * i, h - 2 * i))
 
-        self.player = Player("images/bacteria_green.png")
+        self.player = Player("images/bacteria_green.png", "player")
         self.add_entity_on_layer(self.LN.MAP, self.player)
         self.set_tracked_entity(self.LN.MAP, self.player, ss.camera_speed)
 
-        enemy1 = MovableEntity("images/bacteria_orange.png")
+        enemy1 = MovableEntity("images/bacteria_orange.png", "enemy1")
         enemy1.set_position(Vector(90, 20))
-        enemy2 = MovableEntity("images/bacteria_red.png")
+        enemy2 = MovableEntity("images/bacteria_red.png", "enemy2")
         enemy2.set_position(Vector(77, 100))
         # enemy1.move_direction = Vector(-1, -1)
         self.add_entities_on_layer(self.LN.MAP, [enemy1, enemy2])
@@ -86,12 +86,18 @@ class Game:
 
         main_screen: Screen = self.game_screen
         # Цикл игры
+        cadr = 0
         while self.is_game_run:
+            print(f"{cadr = :_^40}")
+            cadr+=1
             ss.FPS_clock.tick(ss.FPS)
+            print("Event")
             self.event_tracking(main_screen)
 
+            print("Update")
             main_screen.update()
 
+            print("Render")
             self.surface.fill(crl.pink)
             main_screen.render()
 
