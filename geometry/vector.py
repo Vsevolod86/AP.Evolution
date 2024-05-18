@@ -3,7 +3,7 @@ import math
 
 class Vector:
     def __init__(self, x=0.0, y=0.0) -> None:
-        self.x, self.y = x + 0.0, y + 0.0
+        self.x, self.y = float(x), float(y)
 
     def __repr__(self):
         return "Vector({}, {})".format(self.x, self.y)
@@ -62,7 +62,7 @@ class Vector:
 
     def get_normalization(self) -> "Vector":
         if abs(self) > 0.0:
-            return Vector(self.x / abs(self), self.y / abs(self))
+            return Vector(self.x, self.y) / abs(self)
         return Vector()
 
     def rotate(self, angle: float):

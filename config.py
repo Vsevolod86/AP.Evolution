@@ -19,13 +19,16 @@ class ScreenSettings:
     camera_speed = 1  # the speed of the camera keeping up with the player
     camera_zoom = 2
 
+
+class GameSettings:
     FPS_clock = pg.time.Clock()
-    FPS = 60
+    FPS = 40
     developer_mode = True
+    log_file_name = "log.txt"
 
     @staticmethod
     def dt():
-        return ScreenSettings.FPS_clock.get_time()
+        return GameSettings.FPS_clock.get_time()
 
 
 class ButtonSettings:
@@ -37,12 +40,28 @@ class ButtonSettings:
     }
 
 
+class PhysicsSettings:
+    max_speed = 0.2
+    separation_speed = max_speed * 0.1
+    friction_coefficient = 0.005
+    error = 0.001
+
+
 class DefaultActorSettings:
-    speed = 0.1
+    speed = PhysicsSettings.max_speed * 0.5
     mass = 10
     weight = 10
 
 
-class PhysicsSettings:
-    friction_coefficient = 0.005
-    error = 0.001
+class Settings(
+    DefaultActorSettings, PhysicsSettings, ButtonSettings, GameSettings, ScreenSettings
+):
+    pass
+
+
+def print_in_log_file(msg: str):
+    if not GameSettings.developer_mode:
+        return
+    with open(GameSettings.log_file_name, "a") as f:
+        f.write(msg + "\n")
+        print(msg)

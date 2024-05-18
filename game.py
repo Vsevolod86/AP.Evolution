@@ -1,10 +1,10 @@
+from enum import Enum
 import pygame as pg
 
-from engine import MovableEntity, Bar, Player, RenderedRect, Screen, StaticEntity
-from config import ScreenSettings as ss
-from config import Colors
+from engine import MovableEntity, Bar, Player, Screen, StaticEntity, Entity
+from config import Settings
+from config import Colors, print_in_log_file
 from geometry.vector import Vector
-from enum import Enum
 
 
 class GameScreen(Screen):
@@ -15,7 +15,7 @@ class GameScreen(Screen):
         # BackGround
         w, h, i = surface.get_width(), surface.get_height(), 5
         self.add_layer(self.LN.BG, pg.Rect(i, i, w - 2 * i, h - 2 * i))
-        bg = RenderedRect(Vector(i, i), Vector(w, h), ss.bg_color)
+        bg = Entity(Vector(i, i), Vector(w, h), self.LN.BG, Settings.bg_color)
         self.add_entity_on_layer(self.LN.BG, bg)
 
         # MAP
@@ -23,17 +23,17 @@ class GameScreen(Screen):
 
         self.player = Player("images/bacteria_green.png", "player")
         self.add_entity_on_layer(self.LN.MAP, self.player)
-        self.set_tracked_entity(self.LN.MAP, self.player, ss.camera_speed)
+        self.set_tracked_entity(self.LN.MAP, self.player, Settings.camera_speed)
 
         enemy1 = MovableEntity("images/bacteria_orange.png", "enemy1")
         enemy1.set_position(Vector(90, 20))
         enemy2 = MovableEntity("images/bacteria_red.png", "enemy2")
-        enemy2.set_position(Vector(80, 50))
+        enemy2.set_position(Vector(80, 20))
         enemy2.mass = 0.1
         # enemy1.move_direction = Vector(-1, -1)
         self.add_entities_on_layer(self.LN.MAP, [enemy1, enemy2])
 
-        rect = StaticEntity("images/tmp2.png", "rect")
+        rect = StaticEntity("images/tmp.png", "rect")
         rect.set_position(Vector(100, 100))
         self.add_entity_on_layer(self.LN.MAP, rect)
 
@@ -41,10 +41,10 @@ class GameScreen(Screen):
         self.add_layer(self.LN.INTERFACE, pg.Rect(i, i, w - 2 * i, h - 2 * i))
 
         barHP = Bar(Vector(30, 30), Vector(50, 10), Colors.green, Colors.silver)
-        barHP.percent = 0.8
+        barHP.update(0.8)
         self.add_entity_on_layer(self.LN.INTERFACE, barHP)
 
-        self.set_camera_zoom(ss.camera_zoom)
+        self.set_camera_zoom(Settings.camera_zoom)
 
     def event_tracking(self, event: pg.event.Event):
         """Отслеживание событий"""
@@ -54,7 +54,7 @@ class GameScreen(Screen):
         # self.player.update(self.get_entities(self.LN.MAP))
         for entity in self.get_entities(self.LN.MAP):
             entity.update(self.get_entities(self.LN.MAP))
-            print(entity.name, entity.v)
+            print_in_log_file(f"{entity.name}, {entity.v}")
 
     def set_camera_zoom(self, zoomLevel: float):
         for layer_name in [self.LN.MAP, self.LN.BG]:
@@ -65,8 +65,8 @@ class Game:
     def __init__(self) -> None:
         pg.init()
         # Окно игры: размер, позиция
-        self.surface = pg.display.set_mode((ss.width, ss.height))
-        pg.display.set_caption(ss.game_title)
+        self.surface = pg.display.set_mode((Settings.width, Settings.height))
+        pg.display.set_caption(Settings.game_title)
 
         self.is_game_run = True
         self.game_screen = GameScreen(self.surface)
@@ -90,16 +90,16 @@ class Game:
         # Цикл игры
         cadr = 0
         while self.is_game_run:
-            print(f"{cadr = :_^40}")
-            cadr+=1
-            ss.FPS_clock.tick(ss.FPS)
-            # print("Event")
+            print_in_log_file(f"{cadr = :_^40}")
+            cadr += 1
+            Settings.FPS_clock.tick(Settings.FPS)
+            # print_in_log_file("Event")
             self.event_tracking(main_screen)
 
-            # print("Update")
+            # print_in_log_file("Update")
             main_screen.update()
 
-            # print("Render")
+            # print_in_log_file("Render")
             self.surface.fill(Colors.pink)
             main_screen.render()
 
