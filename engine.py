@@ -5,6 +5,7 @@ from config import ButtonSettings as bs
 from config import DefaultActorSettings as das
 from config import ScreenSettings as ss
 from config import PhysicsSettings as ps
+from config import Colors
 
 
 class IRendered(ABC):
@@ -32,18 +33,23 @@ class Entity(pg.sprite.Sprite, IRendered):
 
     def set_position(self, new_position: Vector):
         self.__position = new_position
-        self.rect.centerx = int(self.__position.x)
-        self.rect.centery = int(self.__position.y)
+        self.rect.left = int(self.__position.x)
+        self.rect.top = int(self.__position.y)
 
     def shift_position(self, delta_position: Vector):
-        self.set_position(self.__position + ss.FPS_clock.get_time() * delta_position)
+        self.set_position(self.__position + ss.dt() * delta_position)
 
     def get_position(self):
         return self.__position
 
-    @abstractmethod
     def draw(self, screen_surface: pg.Surface, convert_position, zoomLevel: float):
-        pass
+        if not ss.developer_mode:
+            return
+        size = self.size * zoomLevel
+        position_on_screen: Vector = convert_position(self.get_position())
+        rect = pg.Rect(*position_on_screen.pair(), *size.pair())
+        pg.draw.rect(screen_surface, Colors.red, rect)
+        pg.draw.rect(screen_surface, Colors.black, self.rect)
 
     @staticmethod
     def collide_entities(entity, entities: list["Entity"]) -> list["Entity"]:
@@ -63,11 +69,8 @@ class RenderedRect(Entity):
     def draw(self, screen_surface: pg.Surface, convert_position, zoomLevel: float):
         size = self.size * zoomLevel
         position_on_screen: Vector = convert_position(self.get_position())
-        pg.draw.rect(
-            screen_surface,
-            self.color,
-            pg.Rect(*position_on_screen.pair(), *size.pair()),
-        )
+        rect = pg.Rect(*position_on_screen.pair(), *size.pair())
+        pg.draw.rect(screen_surface, self.color, rect)
 
 
 class Bar(Entity):
@@ -109,27 +112,42 @@ class PhysicsEntity(Entity, IPhysics):
         name="PhysicsEntity",
         mass=1.0,
         velocity=Vector(0, 0),
-        acceleration=Vector(0, 0),
     ) -> None:
         self.is_movable = is_movable
         self.mass = mass
         self.velocity = velocity
-        self.acceleration = acceleration
         self.image = pg.image.load(image_path)
         size = Vector(self.image.get_width(), self.image.get_height())
         super().__init__(Vector(0, 0), size, name)
 
+    @property
+    def is_static(self):
+        return not self.is_movable
+
+    @property
+    def m(self):
+        return self.mass
+
+    @property
+    def v(self):
+        return self.velocity
+
     def move(self):
         """Обновление скорости и позиции"""
-        self.velocity += self.acceleration
+        if self.is_static:
+            assert abs(self.velocity) == 0
         self.shift_position(self.velocity)
 
-    def apply_force(self, force: Vector):
-        """Применение силы к объекту"""
-        self.acceleration += force / self.mass
+    def apply_friction(self, friction_coefficient: float):
+        """Применение силы трения к объекту"""
+        if abs(self.velocity) > 0:
+            self.velocity *= 1 - friction_coefficient
 
     def update(self, entities: list["PhysicsEntity"]) -> None:
         if self.is_movable:
+            if abs(self.velocity) <= ps.error:
+                self.velocity = Vector(0.0, 0.0)
+            self.apply_friction(ps.friction_coefficient)
             self.move()
         # проверка коллизий
         collide_group = Entity.collide_entities(self, entities)
@@ -139,32 +157,48 @@ class PhysicsEntity(Entity, IPhysics):
 
     @staticmethod
     def handle_collision(obj1: "PhysicsEntity", obj2: "PhysicsEntity"):
+        obj1.shift_position(-obj1.velocity)
+        # оба статические
+        if obj1.is_static and obj2.is_static:
+            return
+        # оба динамические
         new_velocity = lambda v1, m1, v2, m2: ((m1 - m2) * v1 + 2 * m2 * v2) / (m1 + m2)
         if obj1.is_movable and obj2.is_movable:
-            v1 = obj1.velocity
-            v2 = obj2.velocity
-            m1 = obj1.mass
-            m2 = obj2.mass
-            obj1.velocity = new_velocity(v1, m1, v2, m2)
-            obj2.velocity = new_velocity(v2, m2, v1, m1)
+            v1 = obj1.v
+            v2 = obj2.v
+            obj1.velocity = new_velocity(v1, obj1.m, v2, obj2.m)
+            obj2.velocity = new_velocity(v2, obj2.m, v1, obj1.m)
         else:
-            obj1.shift_position(-obj1.velocity)
+            # один динамический, другой статический
+            if obj2.is_movable:
+                obj1, obj2 = obj2, obj1
+            # первый динамический, второй статический
+            obj1.velocity *= -1
 
     def draw(self, screen_surface: pg.Surface, convert_position, zoomLevel: float):
+        super().draw(screen_surface, convert_position, zoomLevel)
+
         size = self.size * zoomLevel
-        position_on_screen: Vector = convert_position(self.get_position())
         image = pg.transform.scale(self.image, size.pair())
+        position_on_screen: Vector = convert_position(self.get_position())
         screen_surface.blit(image, position_on_screen.pair())
+
+
+class StaticEntity(PhysicsEntity):
+    def __init__(self, image_path: str, name="StaticEntity") -> None:
+        super().__init__(image_path, False, name)
 
 
 class MovableEntity(PhysicsEntity):
     def __init__(self, image_path: str, name="MovableEntity") -> None:
         super().__init__(image_path, True, name)
-        self.velocity = Vector(0, 0)  # задаёт только направление
-        self.speed = das.speed
 
 
 class Player(MovableEntity):
+    def __init__(self, image_path: str, name="Player") -> None:
+        super().__init__(image_path, name)
+        self.speed = das.speed
+    
     def event_tracking(self, event: pg.event.Event):
         if event.type == pg.KEYDOWN or event.type == pg.KEYUP:
             if event.key in bs.move_buttons.values():

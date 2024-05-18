@@ -1,8 +1,8 @@
 import pygame as pg
 
-from engine import MovableEntity, Bar, Player, RenderedRect, Screen
+from engine import MovableEntity, Bar, Player, RenderedRect, Screen, StaticEntity
 from config import ScreenSettings as ss
-from config import Colors as crl
+from config import Colors
 from geometry.vector import Vector
 from enum import Enum
 
@@ -26,21 +26,21 @@ class GameScreen(Screen):
         self.set_tracked_entity(self.LN.MAP, self.player, ss.camera_speed)
 
         enemy1 = MovableEntity("images/bacteria_orange.png", "enemy1")
-        enemy1.mass = 2.0
         enemy1.set_position(Vector(90, 20))
         enemy2 = MovableEntity("images/bacteria_red.png", "enemy2")
         enemy2.set_position(Vector(80, 50))
+        enemy2.mass = 0.1
         # enemy1.move_direction = Vector(-1, -1)
         self.add_entities_on_layer(self.LN.MAP, [enemy1, enemy2])
 
-        # rect = RenderedRect(Vector(30, 70), Vector(30, 10), ss.bg_color)
-        # rect.set_position(Vector(100, 100))
-        # self.add_entity_on_layer(self.LN.MAP, rect)
+        rect = StaticEntity("images/tmp2.png", "rect")
+        rect.set_position(Vector(100, 100))
+        self.add_entity_on_layer(self.LN.MAP, rect)
 
         # INTERFACE
         self.add_layer(self.LN.INTERFACE, pg.Rect(i, i, w - 2 * i, h - 2 * i))
 
-        barHP = Bar(Vector(30, 30), Vector(50, 10), crl.green, crl.silver)
+        barHP = Bar(Vector(30, 30), Vector(50, 10), Colors.green, Colors.silver)
         barHP.percent = 0.8
         self.add_entity_on_layer(self.LN.INTERFACE, barHP)
 
@@ -54,6 +54,7 @@ class GameScreen(Screen):
         # self.player.update(self.get_entities(self.LN.MAP))
         for entity in self.get_entities(self.LN.MAP):
             entity.update(self.get_entities(self.LN.MAP))
+            print(entity.name, entity.v)
 
     def set_camera_zoom(self, zoomLevel: float):
         for layer_name in [self.LN.MAP, self.LN.BG]:
@@ -89,7 +90,7 @@ class Game:
         # Цикл игры
         cadr = 0
         while self.is_game_run:
-            # print(f"{cadr = :_^40}")
+            print(f"{cadr = :_^40}")
             cadr+=1
             ss.FPS_clock.tick(ss.FPS)
             # print("Event")
@@ -99,7 +100,7 @@ class Game:
             main_screen.update()
 
             # print("Render")
-            self.surface.fill(crl.pink)
+            self.surface.fill(Colors.pink)
             main_screen.render()
 
             # Обновление экрана (всегда в конце цикла)
