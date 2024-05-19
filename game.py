@@ -1,7 +1,7 @@
 from enum import Enum
 import pygame as pg
 
-from engine import MovableEntity, Bar, Player, Screen, StaticEntity, Entity
+from engine import Character, Bar, Player, Screen, Obstacle, Entity
 from config import Settings
 from config import Colors, print_in_log_file
 from geometry.vector import Vector
@@ -25,15 +25,15 @@ class GameScreen(Screen):
         self.add_entity_on_layer(self.LN.MAP, self.player)
         self.set_tracked_entity(self.LN.MAP, self.player, Settings.camera_speed)
 
-        enemy1 = MovableEntity("images/bacteria_orange.png", "enemy1")
+        enemy1 = Character("images/bacteria_orange.png", "enemy1")
         enemy1.set_position(Vector(90, 20))
-        enemy2 = MovableEntity("images/bacteria_red.png", "enemy2")
+        enemy2 = Character("images/bacteria_red.png", "enemy2")
         enemy2.set_position(Vector(80, 20))
         enemy2.mass = 0.1
         # enemy1.move_direction = Vector(-1, -1)
         self.add_entities_on_layer(self.LN.MAP, [enemy1, enemy2])
 
-        rect = StaticEntity("images/tmp.png", "rect")
+        rect = Obstacle("images/tmp.png", "rect")
         rect.set_position(Vector(100, 100))
         self.add_entity_on_layer(self.LN.MAP, rect)
 
@@ -41,7 +41,7 @@ class GameScreen(Screen):
         self.add_layer(self.LN.INTERFACE, pg.Rect(i, i, w - 2 * i, h - 2 * i))
 
         barHP = Bar(Vector(30, 30), Vector(50, 10), Colors.green, Colors.silver)
-        barHP.update(0.8)
+        barHP.update_load(0.8)
         self.add_entity_on_layer(self.LN.INTERFACE, barHP)
 
         self.set_camera_zoom(Settings.camera_zoom)
@@ -50,10 +50,10 @@ class GameScreen(Screen):
         """Отслеживание событий"""
         self.player.event_tracking(event)
 
-    def update(self):
-        # self.player.update(self.get_entities(self.LN.MAP))
+    def process_entities(self):
+        # self.player.process_entities(self.get_entities(self.LN.MAP))
         for entity in self.get_entities(self.LN.MAP):
-            entity.update(self.get_entities(self.LN.MAP))
+            entity.process(self.get_entities(self.LN.MAP))
             print_in_log_file(f"{entity.name}, {entity.v}")
 
     def set_camera_zoom(self, zoomLevel: float):
@@ -97,7 +97,7 @@ class Game:
             self.event_tracking(main_screen)
 
             # print_in_log_file("Update")
-            main_screen.update()
+            main_screen.process_entities()
 
             # print_in_log_file("Render")
             self.surface.fill(Colors.pink)

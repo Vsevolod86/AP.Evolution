@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import Callable
 import pygame as pg
 from geometry.vector import Vector
 from config import Settings
@@ -7,14 +8,28 @@ from config import Colors, print_in_log_file
 
 class Entity(pg.sprite.Sprite):
     def __init__(
-        self, position: Vector, size: Vector, name="Entity", color=Colors.red
+        self,
+        position: Vector,
+        size=Vector(1, 1),
+        name="Entity",
+        color=Colors.red,
+        path2image="",
     ) -> None:
+        """Если не задан path2image, то объект без спрайта"""
         super().__init__()
-        self.size = size
         self.name = name
+        self.size = size
         self.color = color
-        self.rect = pg.Rect(*position.pair(), *size.pair())
+        self.__set_image(path2image)
+        self.rect = pg.Rect(*position.pair(), *self.size.pair())
         self.set_position(position)
+
+    def __set_image(self, path2image: str):
+        if path2image == "":
+            self.image = None
+            return
+        self.image = pg.image.load(path2image)
+        self.size = Vector(self.image.get_width(), self.image.get_height())
 
     @property
     def center(self):
@@ -31,12 +46,24 @@ class Entity(pg.sprite.Sprite):
     def get_position(self):
         return self.__position
 
-    def draw(self, screen_surface: pg.Surface, convert_position, zoomLevel: float):
+    def update(
+        self,
+        screen_surface: pg.Surface,
+        convert_position: Callable[[Vector], Vector],
+        zoomLevel: float,
+    ):
         """convert_position - функция для преобразования позиции объекта в его позицию на экране"""
         size = self.size * zoomLevel
-        position_on_screen: Vector = convert_position(self.get_position())
-        rect = pg.Rect(*position_on_screen.pair(), *size.pair())
-        pg.draw.rect(screen_surface, self.color, rect)
+        position_on_screen = convert_position(self.get_position())
+        if self.image is None or Settings.developer_mode:
+            rect = pg.Rect(*position_on_screen.pair(), *size.pair())
+            pg.draw.rect(screen_surface, self.color, rect)
+        if self.image is not None:
+            image = pg.transform.scale(self.image, size.pair())
+            screen_surface.blit(image, position_on_screen.pair())
+
+    def process(self, entities: list["Entity"]):
+        pass
 
     @staticmethod
     def collide_entities(entity, entities: list["Entity"]) -> list["Entity"]:
@@ -67,15 +94,15 @@ class Bar(Entity):
             position + self.ident, size - 2 * self.ident, "FG of " + name, color
         )
 
-    def draw(self, screen_surface: pg.Surface, convert_position, zoomLevel: float):
+    def update(self, screen_surface: pg.Surface, convert_position, zoomLevel: float):
         # сдвиг
         self.bg_bar.set_position(self.get_position())
         self.movable_bar.set_position(self.get_position() + self.ident)
         # отрисовка
-        self.bg_bar.draw(screen_surface, convert_position, zoomLevel)
-        self.movable_bar.draw(screen_surface, convert_position, zoomLevel)
+        self.bg_bar.update(screen_surface, convert_position, zoomLevel)
+        self.movable_bar.update(screen_surface, convert_position, zoomLevel)
 
-    def update(self, percent: float):
+    def update_load(self, percent: float):
         self.__percent = max(0, min(percent, 1))
         self.movable_bar.size.x = self.__percent * (
             self.bg_bar.size.x - 2 * self.ident.x
@@ -89,14 +116,11 @@ class PhysicsEntity(Entity):
         is_movable: bool,
         name="PhysicsEntity",
         mass=1.0,
-        velocity=Vector(0, 0),
     ) -> None:
         self.is_movable = is_movable
         self.mass = mass
-        self.velocity = velocity
-        self.image = pg.image.load(path2image)
-        size = Vector(self.image.get_width(), self.image.get_height())
-        super().__init__(Vector(0, 0), size, name)
+        self.velocity = Vector(0, 0)
+        super().__init__(position=Vector(0, 0), name=name, path2image=path2image)
 
     @property
     def is_static(self):
@@ -114,6 +138,7 @@ class PhysicsEntity(Entity):
         """Обновление скорости и позиции"""
         if self.is_static:
             assert abs(velocity) == 0
+            return
         # ограничиваю скорость снизу
         if abs(velocity) <= Settings.error:
             velocity = Vector(0.0, 0.0)
@@ -127,7 +152,24 @@ class PhysicsEntity(Entity):
         if abs(self.velocity) > 0:
             self.velocity *= 1 - friction_coefficient
 
-    def update(self, entities: list["PhysicsEntity"]) -> None:
+    @staticmethod
+    def apply_repulsion(obj1: "PhysicsEntity", obj2: "PhysicsEntity"):
+        """Применение силы отталкивания к объектам"""
+        distance = abs(obj1.center - obj2.center)
+        max_distance = abs(obj1.size + obj2.size) / 2
+        intersection_coeff = distance / max_distance
+        intersection_coeff = min(max(intersection_coeff, 0.1), 0.9)
+
+        direction_of_move = (obj1.center - obj2.center).get_normalization()
+        if abs(direction_of_move) == 0:
+            direction_of_move = Vector(1, 0)
+
+        d_pos = intersection_coeff * Settings.separation_speed * direction_of_move
+        obj1.move(d_pos)
+        obj2.move(-d_pos)
+        print_in_log_file("apply_repulsion")
+
+    def process(self, entities: list["PhysicsEntity"]) -> None:
         if self.is_movable:
             self.apply_friction(Settings.friction_coefficient)
             self.move(self.velocity)
@@ -156,91 +198,69 @@ class PhysicsEntity(Entity):
                 obj1, obj2 = obj2, obj1
             # первый динамический, второй статический
             obj1.velocity *= -1
-        obj1.apply_repulsion(obj2)
-
-    def apply_repulsion(self, entity: "PhysicsEntity"):
-        """Применение силы отталкивания к объектам, если пересекаются"""
-        if self.rect.colliderect(entity.rect):
-            distance = abs(self.center - entity.center)
-            max_distance = abs(self.size + entity.size) / 2
-            intersection_coeff = distance / max_distance
-            intersection_coeff = min(max(intersection_coeff, 0.1), 0.9)
-
-            direction_of_move = (self.center - entity.center).get_normalization()
-            if abs(direction_of_move) == 0:
-                direction_of_move = Vector(1, 0)
-
-            self.move(
-                intersection_coeff * Settings.separation_speed * direction_of_move
-            )
-            entity.move(
-                -intersection_coeff * Settings.separation_speed * direction_of_move
-            )
-            print_in_log_file("apply_repulsion")
-
-    def draw(self, screen_surface: pg.Surface, convert_position, zoomLevel: float):
-        if Settings.developer_mode:
-            super().draw(screen_surface, convert_position, zoomLevel)
-
-        size = self.size * zoomLevel
-        image = pg.transform.scale(self.image, size.pair())
-        position_on_screen: Vector = convert_position(self.get_position())
-        screen_surface.blit(image, position_on_screen.pair())
+        if obj1.rect.colliderect(obj2.rect):
+            PhysicsEntity.apply_repulsion(obj1, obj2)
 
 
-class RenderedEntity(PhysicsEntity):
-    def __init__(
-        self,
-        path2image: str,
-        is_movable: bool,
-        name="PhysicsEntity",
-        mass=1.0,
-        velocity=Vector(0, 0),
-    ) -> None:
-        self.is_movable = is_movable
-        self.mass = mass
-        self.velocity = velocity
-        self.image = pg.image.load(path2image)
-        size = Vector(self.image.get_width(), self.image.get_height())
-        super().__init__(Vector(0, 0), size, name)
-
-    def draw(self, screen_surface: pg.Surface, convert_position, zoomLevel: float):
-        if Settings.developer_mode:
-            super().draw(screen_surface, convert_position, zoomLevel)
-
-        size = self.size * zoomLevel
-        image = pg.transform.scale(self.image, size.pair())
-        position_on_screen: Vector = convert_position(self.get_position())
-        screen_surface.blit(image, position_on_screen.pair())
-
-
-class StaticEntity(PhysicsEntity):
-    def __init__(self, path2image: str, name="StaticEntity") -> None:
+class Obstacle(PhysicsEntity):
+    def __init__(self, path2image: str, name="Obstacle") -> None:
         super().__init__(path2image, False, name)
 
 
-class MovableEntity(PhysicsEntity):
-    def __init__(self, path2image: str, name="MovableEntity") -> None:
-        super().__init__(path2image, True, name)
-
-
-class Player(MovableEntity):
-    def __init__(self, path2image: str, name="Player") -> None:
-        super().__init__(path2image, name)
+class Character(PhysicsEntity):
+    def __init__(
+        self,
+        path2image: str,
+        name="Character",
+        mass=1.0,
+    ) -> None:
+        super().__init__(path2image=path2image, is_movable=True, name=name, mass=mass)
         self.speed = Settings.speed
 
+
+class Player(Character):
+    def __init__(self, path2image: str, name="Player") -> None:
+        super().__init__(path2image, name)
+        self.__set_clamped_buttons()
+
+    def __set_clamped_buttons(self):
+        """Создаёт поля связанные с кнопоками"""
+        self.clamped_buttons: dict[str, int] = {}
+        # key - название кнопки, value - время удержания
+        self.buttons: dict[int, str] = {}
+        # key - номер кнопки в pygame, value - название кнопки
+        list_buttons = [Settings.move_buttons]
+        for buttons in list_buttons:
+            for name, button in buttons.items():
+                self.clamped_buttons[name] = 0
+                self.buttons[button] = name
+
+    def process(self, entities: list[PhysicsEntity]):
+        self.process_movement()
+        super().process(entities)
+
     def event_tracking(self, event: pg.event.Event):
-        if event.type == pg.KEYDOWN or event.type == pg.KEYUP:
-            if event.key in Settings.move_buttons.values():
-                direct = int(event.type == pg.KEYDOWN) * self.speed
-                if event.key == Settings.move_buttons["right"]:
-                    self.velocity.x = direct
-                elif event.key == Settings.move_buttons["left"]:
-                    self.velocity.x = -direct
-                elif event.key == Settings.move_buttons["up"]:
-                    self.velocity.y = -direct
-                elif event.key == Settings.move_buttons["down"]:
-                    self.velocity.y = direct
+        is_pressed = event.type == pg.KEYDOWN
+        is_released = event.type == pg.KEYUP
+        if is_pressed or is_released:
+            if event.key in self.buttons.keys():
+                name = self.buttons[event.key]
+                if is_pressed:
+                    self.clamped_buttons[name] += Settings.dt()
+                if is_released:
+                    self.clamped_buttons[name] = 0
+
+    def process_movement(self):
+        velocity = self.velocity
+        if self.clamped_buttons["right"]:
+            velocity.x = self.speed
+        if self.clamped_buttons["left"]:
+            velocity.x = -self.speed
+        if self.clamped_buttons["up"]:
+            velocity.y = -self.speed
+        if self.clamped_buttons["down"]:
+            velocity.y = self.speed
+        self.velocity = self.speed * velocity.get_normalization()
 
 
 class Camera:
@@ -262,6 +282,9 @@ class Camera:
         self.speed = speed
         self.trackedEntity = entity
 
+    def set_zoom(self, new_zoom_level: float):
+        self.zoomLevel = new_zoom_level
+
     def render(self, screen_surface: pg.Surface, entities: list[Entity]) -> None:
         position_on_camera = lambda position: position
         if self.trackedEntity is not None:
@@ -280,13 +303,10 @@ class Camera:
 
         # render entities
         for e in entities:
-            e.draw(screen_surface, position_on_camera, self.zoomLevel)
+            e.update(screen_surface, position_on_camera, self.zoomLevel)
 
         # FINISH render
         screen_surface.set_clip(None)
-
-    def set_zoom(self, new_zoom_level: float):
-        self.zoomLevel = new_zoom_level
 
 
 class Layer:
@@ -349,5 +369,5 @@ class Screen:
         pass
 
     @abstractmethod
-    def update(self):
+    def process_entities(self):
         pass

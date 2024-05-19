@@ -2,4 +2,7 @@
 .venv
 .pylintrc
 
+log.txt
+test.py
+
 **/__pycache__

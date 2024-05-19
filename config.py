@@ -1,4 +1,5 @@
 # конфигурации - поля классов
+from enum import Enum
 import pygame as pg
 
 
@@ -23,7 +24,7 @@ class ScreenSettings:
 class GameSettings:
     FPS_clock = pg.time.Clock()
     FPS = 40
-    developer_mode = True
+    developer_mode = True  # and False
     log_file_name = "log.txt"
 
     @staticmethod
@@ -37,6 +38,12 @@ class ButtonSettings:
         "left": pg.K_a,
         "up": pg.K_w,
         "down": pg.K_s,
+    }
+    move_buttonsR = {
+        pg.K_d: "right",
+        pg.K_a: "left",
+        pg.K_w: "up",
+        pg.K_s: "down",
     }
 
 
