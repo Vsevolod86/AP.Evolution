@@ -56,6 +56,12 @@ class Vector:
     def __abs__(self) -> float:
         return math.hypot(self.x, self.y)
 
+    def min(self) -> float:
+        return min(self.x, self.y)
+
+    def max(self) -> float:
+        return max(self.x, self.y)
+    
     def sign(self) -> "Vector":
         sign = lambda a: 0 if (a == 0) else (1 if (a > 0) else -1)
         return Vector(sign(self.x), sign(self.y))

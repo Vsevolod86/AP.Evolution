@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from typing import Callable
 import pygame as pg
 from geometry.vector import Vector
@@ -6,42 +6,88 @@ from config import Settings
 from config import Colors, print_in_log_file
 
 
-class Entity(pg.sprite.Sprite):
+class IRenderable(ABC):
+    @abstractmethod
+    def update(
+        self,
+        screen_surface: pg.Surface,
+        convert_position: Callable[[Vector], Vector],
+        zoomLevel: float,
+    ):
+        pass
+
+
+class IPhysicable(ABC):
+    @abstractmethod
+    def move(self, velocity) -> None:
+        pass
+
+    @abstractmethod
+    def process(self, entities: list["PhysicsEntity"]) -> None:
+        pass
+
+
+class IPositionable(ABC):
+    @abstractmethod
+    def get_position(self):
+        pass
+
+    @abstractmethod
+    def set_position(self, new_position: Vector) -> None:
+        pass
+
+    @abstractmethod
+    def set_indent(self, new_indent: Vector) -> None:
+        pass
+
+
+class Model:
+    def __init__(self) -> None:
+        self._elements: list = []
+
+    def add(self, element):
+        self._elements.append(element)
+
+    def get_elements(self):
+        return self._elements
+
+    def delete(self, index: int):
+        del self._elements[index]
+
+    def modify(self, index: int, new_element):
+        self._elements[index] = new_element
+
+
+class Entity(pg.sprite.Sprite, IRenderable, IPositionable):
     def __init__(
         self,
-        position: Vector,
-        size=Vector(1, 1),
+        size: Vector,
+        position=Vector(0, 0),
         name="Entity",
-        color=Colors.red,
-        path2image="",
+        color=Settings.default_color,
     ) -> None:
-        """Если не задан path2image, то объект без спрайта"""
         super().__init__()
-        self.name = name
         self.size = size
+        self.name = name
         self.color = color
-        self.__set_image(path2image)
+        self._indent = Vector(0, 0)
         self.rect = pg.Rect(*position.pair(), *self.size.pair())
         self.set_position(position)
-
-    def __set_image(self, path2image: str):
-        if path2image == "":
-            self.image = None
-            return
-        self.image = pg.image.load(path2image)
-        self.size = Vector(self.image.get_width(), self.image.get_height())
 
     @property
     def center(self):
         return self.get_position() + self.size / 2
 
-    def set_position(self, new_position: Vector):
-        self.__position = new_position
+    def set_position(self, new_position: Vector) -> None:
+        self.__position = self._indent + new_position
         self.rect.left = int(self.__position.x)
         self.rect.top = int(self.__position.y)
 
-    def move_position(self, delta_position: Vector):
-        self.set_position(self.__position + Settings.dt() * delta_position)
+    def set_indent(self, new_indent: Vector) -> None:
+        self._indent = new_indent
+
+    def move_position(self, delta_position: Vector) -> None:
+        self.set_position(self.__position + delta_position)
 
     def get_position(self):
         return self.__position
@@ -55,15 +101,8 @@ class Entity(pg.sprite.Sprite):
         """convert_position - функция для преобразования позиции объекта в его позицию на экране"""
         size = self.size * zoomLevel
         position_on_screen = convert_position(self.get_position())
-        if self.image is None or Settings.developer_mode:
-            rect = pg.Rect(*position_on_screen.pair(), *size.pair())
-            pg.draw.rect(screen_surface, self.color, rect)
-        if self.image is not None:
-            image = pg.transform.scale(self.image, size.pair())
-            screen_surface.blit(image, position_on_screen.pair())
-
-    def process(self, entities: list["Entity"]):
-        pass
+        rect = pg.Rect(*position_on_screen.pair(), *size.pair())
+        pg.draw.rect(screen_surface, self.color, rect)
 
     @staticmethod
     def collide_entities(entity, entities: list["Entity"]) -> list["Entity"]:
@@ -75,79 +114,194 @@ class Entity(pg.sprite.Sprite):
         return collide_group
 
 
+class SubElement(IRenderable):
+    def __init__(
+        self,
+        main_entity: Entity,
+        sub_entity: Entity,
+        z_index=1,
+    ) -> None:
+        """indent - отступ"""
+        assert main_entity != sub_entity and isinstance(sub_entity, Entity)
+        self.main_entity = main_entity
+        self.sub_entity = sub_entity
+        self.z_index = z_index
+
+    def update_position(self):
+        self.sub_entity.set_position(self.main_entity.get_position())
+
+    def update(
+        self,
+        screen_surface: pg.Surface,
+        convert_position: Callable[[Vector], Vector],
+        zoomLevel: float,
+    ):
+        self.sub_entity.update(
+            screen_surface=screen_surface,
+            convert_position=convert_position,
+            zoomLevel=zoomLevel,
+        )
+
+
+class SubElementModel(Model, IRenderable):
+    def __init__(self) -> None:
+        super().__init__()
+        self._elements: list[SubElement]
+
+    def add(self, element: SubElement):
+        super().add(element=element)
+        self._elements = sorted(self._elements, key=lambda se: se.z_index)
+
+    def update_position(self):
+        for entity in self._elements:
+            entity.update_position()
+
+    def update(
+        self,
+        screen_surface: pg.Surface,
+        convert_position: Callable[[Vector], Vector],
+        zoomLevel: float,
+    ):
+        for entity in self._elements:
+            entity.update(
+                screen_surface=screen_surface,
+                convert_position=convert_position,
+                zoomLevel=zoomLevel,
+            )
+
+
 class Bar(Entity):
-    """Шкала здоровья/маны и прочего"""
+    """Шкала здоровья, энергии и прочего"""
 
     def __init__(
         self,
-        position: Vector,
         size: Vector,
-        color: tuple[int],
-        bg_color: tuple[int],
+        position=Vector(0, 0),
         name="Bar",
-    ):
-        super().__init__(position, size, name)
+        color: tuple[int] = Colors.green,
+        bg_color: tuple[int] = Colors.silver,
+    ) -> None:
+        super().__init__(size, position, name, bg_color)
         self.__percent = 1
-        self.ident = 0.1 * Vector(self.size.y, self.size.y)
-        self.bg_bar = Entity(position, size, "BG of " + name, bg_color)
+        self.sub_elements = SubElementModel()
+        # Шкала
+        self.indent = 0.1 * Vector(self.size.min(), self.size.min())
         self.movable_bar = Entity(
-            position + self.ident, size - 2 * self.ident, "FG of " + name, color
+            size - 2 * self.indent, position + self.indent, "FG of " + name, color
         )
+        self.movable_bar.set_indent(self.indent)
+        self.sub_elements.add(SubElement(self, self.movable_bar, 2))
 
-    def update(self, screen_surface: pg.Surface, convert_position, zoomLevel: float):
-        # сдвиг
-        self.bg_bar.set_position(self.get_position())
-        self.movable_bar.set_position(self.get_position() + self.ident)
-        # отрисовка
-        self.bg_bar.update(screen_surface, convert_position, zoomLevel)
-        self.movable_bar.update(screen_surface, convert_position, zoomLevel)
+    def update(
+        self,
+        screen_surface: pg.Surface,
+        convert_position: Callable[[Vector], Vector],
+        zoomLevel: float,
+    ):
+        super().update(
+            screen_surface=screen_surface,
+            convert_position=convert_position,
+            zoomLevel=zoomLevel,
+        )
+        self.sub_elements.update_position()
+        self.sub_elements.update(screen_surface, convert_position, zoomLevel)
 
     def update_load(self, percent: float):
         self.__percent = max(0, min(percent, 1))
-        self.movable_bar.size.x = self.__percent * (
-            self.bg_bar.size.x - 2 * self.ident.x
+        self.movable_bar.size.x = self.__percent * (self.size.x - 2 * self.indent.x)
+
+    @staticmethod
+    def create_bar(length: float):
+        bar_size = Vector(length, length / Settings.bar_aspect_ratio)
+        return Bar(size=bar_size)
+
+
+class RasterEntity(Entity):
+    def __init__(
+        self,
+        path2image: str,
+        position=Vector(0, 0),
+        name="Entity",
+    ) -> None:
+        self.__set_image(path2image)
+        size = Vector(self.image.get_width(), self.image.get_height())
+        super().__init__(
+            size=size,
+            position=position,
+            name=name,
+            color=Settings.default_color,
         )
 
+    def __set_image(self, path2image: str):
+        # TODO: добавить проверку на существование изображения
+        self.image = pg.image.load(path2image)
 
-class PhysicsEntity(Entity):
+    def update(
+        self,
+        screen_surface: pg.Surface,
+        convert_position: Callable[[Vector], Vector],
+        zoomLevel: float,
+    ):
+        """convert_position - функция для преобразования позиции объекта в его позицию на экране"""
+        size = self.size * zoomLevel
+        position_on_screen = convert_position(self.get_position())
+        if Settings.developer_mode:
+            super().update(
+                screen_surface=screen_surface,
+                convert_position=convert_position,
+                zoomLevel=zoomLevel,
+            )
+        image = pg.transform.scale(self.image, size.pair())
+        screen_surface.blit(image, position_on_screen.pair())
+
+
+class PhysicsEntity(RasterEntity, IPhysicable):
     def __init__(
         self,
         path2image: str,
         is_movable: bool,
+        position=Vector(0, 0),
         name="PhysicsEntity",
         mass=1.0,
     ) -> None:
+        self._set_physics_parameters(is_movable, mass)
+        super().__init__(path2image=path2image, position=position, name=name)
+
+    def _set_physics_parameters(self, is_movable: bool, mass: float) -> None:
         self.is_movable = is_movable
         self.mass = mass
+        assert mass >= 0
         self.velocity = Vector(0, 0)
-        super().__init__(position=Vector(0, 0), name=name, path2image=path2image)
 
     @property
-    def is_static(self):
+    def is_static(self) -> bool:
         return not self.is_movable
 
     @property
-    def m(self):
+    def m(self) -> float:
         return self.mass
 
     @property
-    def v(self):
+    def v(self) -> Vector:
         return self.velocity
 
-    def move(self, velocity):
+    def move_position(self, delta_position: Vector) -> None:
+        super().move_position(delta_position * Settings.dt())
+
+    def move(self, velocity) -> None:
         """Обновление скорости и позиции"""
         if self.is_static:
-            assert abs(velocity) == 0
             return
         # ограничиваю скорость снизу
         if abs(velocity) <= Settings.error:
             velocity = Vector(0.0, 0.0)
+            return
         # ограничиваю скорость сверху
         if Settings.max_speed < abs(velocity):
             velocity *= Settings.max_speed / abs(velocity)
         self.move_position(velocity)
 
-    def apply_friction(self, friction_coefficient: float):
+    def apply_friction(self, friction_coefficient: float) -> None:
         """Применение силы трения к объекту"""
         if abs(self.velocity) > 0:
             self.velocity *= 1 - friction_coefficient
@@ -155,6 +309,7 @@ class PhysicsEntity(Entity):
     @staticmethod
     def apply_repulsion(obj1: "PhysicsEntity", obj2: "PhysicsEntity"):
         """Применение силы отталкивания к объектам"""
+        # TODO: переделать логику
         distance = abs(obj1.center - obj2.center)
         max_distance = abs(obj1.size + obj2.size) / 2
         intersection_coeff = distance / max_distance
@@ -180,7 +335,6 @@ class PhysicsEntity(Entity):
 
     @staticmethod
     def handle_collision(obj1: "PhysicsEntity", obj2: "PhysicsEntity"):
-        print_in_log_file("collision")
         obj1.move_position(-obj1.velocity)
         # оба статические
         if obj1.is_static and obj2.is_static:
@@ -197,30 +351,75 @@ class PhysicsEntity(Entity):
             if obj2.is_movable:
                 obj1, obj2 = obj2, obj1
             # первый динамический, второй статический
+            # TODO: переделать учтя направление после отталкивания (отталкиваться от нормали)
             obj1.velocity *= -1
+
         if obj1.rect.colliderect(obj2.rect):
             PhysicsEntity.apply_repulsion(obj1, obj2)
+        print_in_log_file("collision")
 
 
 class Obstacle(PhysicsEntity):
-    def __init__(self, path2image: str, name="Obstacle") -> None:
-        super().__init__(path2image, False, name)
+    def __init__(
+        self,
+        path2image: str,
+        position=Vector(0, 0),
+        name="Obstacle",
+    ) -> None:
+        super().__init__(
+            path2image=path2image, is_movable=False, position=position, name=name
+        )
 
 
 class Character(PhysicsEntity):
     def __init__(
         self,
         path2image: str,
+        position=Vector(0, 0),
         name="Character",
         mass=1.0,
     ) -> None:
-        super().__init__(path2image=path2image, is_movable=True, name=name, mass=mass)
+        super().__init__(
+            path2image=path2image,
+            is_movable=True,
+            position=position,
+            name=name,
+            mass=mass,
+        )
         self.speed = Settings.speed
+        self.sub_elements = SubElementModel()
+        # Шкала здоровья
+        self.HPbar = Bar.create_bar(self.size.x * Settings.bar_scale)
+        indent = self.size - Vector(
+            (self.center + self.HPbar.center).x, -self.HPbar.size.y * 0.2
+        )
+        self.HPbar.set_indent(indent)
+        self.sub_elements.add(SubElement(self, self.HPbar, 1))
+
+    def process(self, entities: list[PhysicsEntity]):
+        super().process(entities)
+        self.sub_elements.update_position()
+
+    def update(
+        self,
+        screen_surface: pg.Surface,
+        convert_position: Callable[[Vector], Vector],
+        zoomLevel: float,
+    ):
+        super().update(
+            screen_surface=screen_surface,
+            convert_position=convert_position,
+            zoomLevel=zoomLevel,
+        )
+        self.sub_elements.update(screen_surface, convert_position, zoomLevel)
 
 
 class Player(Character):
     def __init__(self, path2image: str, name="Player") -> None:
-        super().__init__(path2image, name)
+        super().__init__(
+            path2image=path2image,
+            name=name,
+        )
         self.__set_clamped_buttons()
 
     def __set_clamped_buttons(self):
@@ -235,7 +434,13 @@ class Player(Character):
                 self.clamped_buttons[name] = 0
                 self.buttons[button] = name
 
+    def process_clamped_buttons(self):
+        for name, _ in self.clamped_buttons.items():
+            if self.clamped_buttons[name] != 0:
+                self.clamped_buttons[name] += Settings.dt()
+
     def process(self, entities: list[PhysicsEntity]):
+        self.process_clamped_buttons()
         self.process_movement()
         super().process(entities)
 
@@ -243,7 +448,7 @@ class Player(Character):
         is_pressed = event.type == pg.KEYDOWN
         is_released = event.type == pg.KEYUP
         if is_pressed or is_released:
-            if event.key in self.buttons.keys():
+            if event.key in self.buttons:
                 name = self.buttons[event.key]
                 if is_pressed:
                     self.clamped_buttons[name] += Settings.dt()
@@ -251,16 +456,17 @@ class Player(Character):
                     self.clamped_buttons[name] = 0
 
     def process_movement(self):
-        velocity = self.velocity
         if self.clamped_buttons["right"]:
-            velocity.x = self.speed
+            self.velocity.x = self.speed
         if self.clamped_buttons["left"]:
-            velocity.x = -self.speed
+            self.velocity.x = -self.speed
         if self.clamped_buttons["up"]:
-            velocity.y = -self.speed
+            self.velocity.y = -self.speed
         if self.clamped_buttons["down"]:
-            velocity.y = self.speed
-        self.velocity = self.speed * velocity.get_normalization()
+            self.velocity.y = self.speed
+
+        if abs(self.velocity) > self.speed:
+            self.velocity *= self.speed / abs(self.velocity)
 
 
 class Camera:

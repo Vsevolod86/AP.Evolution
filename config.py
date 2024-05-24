@@ -26,6 +26,9 @@ class GameSettings:
     FPS = 40
     developer_mode = True  # and False
     log_file_name = "log.txt"
+    default_color = Colors.red
+    bar_scale = 1.25
+    bar_aspect_ratio = 5
 
     @staticmethod
     def dt():
@@ -39,18 +42,12 @@ class ButtonSettings:
         "up": pg.K_w,
         "down": pg.K_s,
     }
-    move_buttonsR = {
-        pg.K_d: "right",
-        pg.K_a: "left",
-        pg.K_w: "up",
-        pg.K_s: "down",
-    }
 
 
 class PhysicsSettings:
     max_speed = 0.2
     separation_speed = max_speed * 0.1
-    friction_coefficient = 0.005
+    friction_coefficient = 0.02
     error = 0.001
 
 
@@ -61,7 +58,11 @@ class DefaultActorSettings:
 
 
 class Settings(
-    DefaultActorSettings, PhysicsSettings, ButtonSettings, GameSettings, ScreenSettings
+    DefaultActorSettings,
+    PhysicsSettings,
+    ButtonSettings,
+    GameSettings,
+    ScreenSettings,
 ):
     pass
 

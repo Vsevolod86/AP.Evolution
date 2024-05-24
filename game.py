@@ -15,7 +15,7 @@ class GameScreen(Screen):
         # BackGround
         w, h, i = surface.get_width(), surface.get_height(), 5
         self.add_layer(self.LN.BG, pg.Rect(i, i, w - 2 * i, h - 2 * i))
-        bg = Entity(Vector(i, i), Vector(w, h), self.LN.BG, Settings.bg_color)
+        bg = Entity(Vector(w, h), Vector(i, i), self.LN.BG, Settings.bg_color)
         self.add_entity_on_layer(self.LN.BG, bg)
 
         # MAP
@@ -25,22 +25,23 @@ class GameScreen(Screen):
         self.add_entity_on_layer(self.LN.MAP, self.player)
         self.set_tracked_entity(self.LN.MAP, self.player, Settings.camera_speed)
 
-        enemy1 = Character("images/bacteria_orange.png", "enemy1")
+        enemy1 = Character("images/bacteria_orange.png", name="enemy1")
         enemy1.set_position(Vector(90, 20))
-        enemy2 = Character("images/bacteria_red.png", "enemy2")
+        enemy2 = Character("images/bacteria_red.png", name="enemy2")
         enemy2.set_position(Vector(80, 20))
         enemy2.mass = 0.1
-        # enemy1.move_direction = Vector(-1, -1)
         self.add_entities_on_layer(self.LN.MAP, [enemy1, enemy2])
 
-        rect = Obstacle("images/tmp.png", "rect")
+        rect = Obstacle("images/tmp.png", name="rect")
         rect.set_position(Vector(100, 100))
         self.add_entity_on_layer(self.LN.MAP, rect)
 
         # INTERFACE
         self.add_layer(self.LN.INTERFACE, pg.Rect(i, i, w - 2 * i, h - 2 * i))
 
-        barHP = Bar(Vector(30, 30), Vector(50, 10), Colors.green, Colors.silver)
+        barHP = Bar(
+            Vector(50, 10), Vector(30, 30), color=Colors.green, bg_color=Colors.silver
+        )
         barHP.update_load(0.8)
         self.add_entity_on_layer(self.LN.INTERFACE, barHP)
 
