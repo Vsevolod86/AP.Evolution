@@ -1,5 +1,5 @@
 from abc import abstractmethod, ABC
-from typing import Callable
+from typing import Callable, Iterable, Union
 import pygame as pg
 from geometry.vector import Vector
 from config import Settings
@@ -48,11 +48,18 @@ class IEventProcessable(ABC):
 
 
 class Model:
-    def __init__(self) -> None:
-        self._elements: list = []
+    def __init__(self, elements_type = object) -> None:
+        self._elements_type = elements_type
+        self._elements: list[self._elements_type] = []
 
     def add(self, element):
-        self._elements.append(element)
+        if isinstance(element, Iterable):
+            for e in element:
+                self._elements.append(e)
+        elif isinstance(element, self._elements_type):
+            self._elements.append(element)
+        else:
+            assert False
 
     def get_elements(self):
         return self._elements
@@ -151,7 +158,7 @@ class SubElement(IRenderable):
 
 class SubElementModel(Model, IRenderable):
     def __init__(self) -> None:
-        super().__init__()
+        super().__init__(elements_type=SubElement)
         self._elements: list[SubElement]
 
     def add(self, element: SubElement):
@@ -479,39 +486,49 @@ class Player(Character, IEventProcessable):
             self.velocity *= self.speed / abs(self.velocity)
 
 
-class Camera:
+class Camera(Entity):
     """
     Класс обладающий областью видимости, который при помощи методов отображет объекты в ней.\\
     При помощи метода set_tracked_entity, можно прикрепить камеру к сущности и следить за ней.
     """
 
-    def __init__(self, rect: pg.Rect, zoom=1.0) -> None:
-        self.rect = rect
+    def __init__(
+        self,
+        size: Vector,
+        position=Vector(0, 0),
+        name="Camera",
+        zoom=1.0,
+    ) -> None:
+        super().__init__(
+            size=size,
+            position=position,
+            name=name,
+            color=Settings.default_color,
+        )
         self.zoom = zoom
         self.world_position = Vector(0.0, 0.0)
-
         self.speed = 0.0
-        self.trackedEntity: Entity = None
+        self.tracked_entity: Entity = None
 
     def set_tracked_entity(self, entity: Entity, speed=0.0):
         assert 0 <= speed <= 1
         self.speed = speed
-        self.trackedEntity = entity
+        self.tracked_entity = entity
 
     def set_zoom(self, new_zoom: float):
         self.zoom = new_zoom
 
-    def render(self, screen_surface: pg.Surface, entities: list[Entity]) -> None:
+    def render(self, screen_surface: pg.Surface, entities: list[IRenderable]) -> None:
         position_on_camera = lambda position: position
-        if self.trackedEntity is not None:
+        if self.tracked_entity is not None:
             s = self.speed
-            entity = self.trackedEntity
-            position = Vector(self.rect.x, self.rect.y)
-            size = Vector(self.rect.width, self.rect.height)
+            entity = self.tracked_entity
 
             target_position = entity.get_position() + entity.size / 2
             self.world_position = self.world_position * (1 - s) + target_position * s
-            offset = position + size / 2 - (self.zoom * self.world_position)
+            offset = (
+                self.get_position() + self.size / 2 - (self.zoom * self.world_position)
+            )
             position_on_camera = lambda position: (self.zoom * position) + offset
 
         # START render
@@ -524,30 +541,30 @@ class Camera:
         # FINISH render
         screen_surface.set_clip(None)
 
+    @staticmethod
+    def create_by_rect(rect: pg.Rect, name="Camera", zoom=1.0):
+        position = Vector(rect.x, rect.y)
+        size = Vector(rect.width, rect.height)
+        return Camera(size=size, position=position, name=name, zoom=zoom)
 
-class Layer:
+
+class Layer(Model):
     """Контейнер для сущностей и камеры отображаемой их"""
 
     def __init__(self, camera: Camera, z_index: int = 1) -> None:
+        super().__init__(elements_type=Entity)
+        self._elements: list[Entity]
         self.z_index = z_index
         self.camera = camera
-        self.display_entities = pg.sprite.Group()
-
-    def render(self, screen_surface: pg.Surface) -> None:
-        self.camera.render(screen_surface, self.display_entities)
 
     def set_tracked_entity(self, entity: Entity, speed=0.0):
         self.camera.set_tracked_entity(entity, speed)
 
-    def add_entity(self, entity: Entity):
-        self.display_entities.add(entity)
-
-    def add_entities(self, entities: list[Entity]):
-        for entity in entities:
-            self.add_entity(entity)
-
     def set_zoom(self, new_zoom: float):
         self.camera.set_zoom(new_zoom)
+
+    def render(self, screen_surface: pg.Surface) -> None:
+        self.camera.render(screen_surface, self._elements)
 
 
 class Screen:
@@ -559,16 +576,13 @@ class Screen:
         self.sorted_layers: list[str] = []
 
     def add_layer(self, l_name: str, display_area: pg.Rect, z_index: int = 1):
-        self.layers[l_name] = Layer(Camera(display_area), z_index)
+        self.layers[l_name] = Layer(Camera.create_by_rect(display_area), z_index)
         self.sorted_layers = list(
             zip(*sorted(self.layers.items(), key=lambda it: it[1].z_index))
         )[0]
 
-    def add_entity_on_layer(self, l_name: str, entity: Entity):
-        self.layers[l_name].add_entity(entity)
-
-    def add_entities_on_layer(self, l_name: str, entities: list[Entity]):
-        self.layers[l_name].add_entities(entities)
+    def add_entities_on_layer(self, l_name: str, entities: Union[Entity, Iterable]):
+        self.layers[l_name].add(entities)
 
     def set_tracked_entity(self, l_name: str, entity: Entity, speed=0.0):
         self.layers[l_name].set_tracked_entity(entity, speed)
@@ -578,7 +592,7 @@ class Screen:
             self.layers[l_name].render(self.surface)
 
     def get_entities(self, l_name: str) -> list[Entity]:
-        return self.layers[l_name].display_entities
+        return self.layers[l_name].get_elements()
 
     @abstractmethod
     def event_tracking(self, event: pg.event.Event):

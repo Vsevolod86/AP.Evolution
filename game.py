@@ -16,13 +16,13 @@ class GameScreen(Screen):
         w, h, i = surface.get_width(), surface.get_height(), 5
         self.add_layer(self.LN.BG, pg.Rect(i, i, w - 2 * i, h - 2 * i))
         bg = Entity(Vector(w, h), Vector(i, i), self.LN.BG, Settings.bg_color)
-        self.add_entity_on_layer(self.LN.BG, bg)
+        self.add_entities_on_layer(self.LN.BG, bg)
 
         # MAP
         self.add_layer(self.LN.MAP, pg.Rect(i, i, w - 2 * i, h - 2 * i))
 
         self.player = Player("images/bacteria_green.png", "player")
-        self.add_entity_on_layer(self.LN.MAP, self.player)
+        self.add_entities_on_layer(self.LN.MAP, self.player)
         self.set_tracked_entity(self.LN.MAP, self.player, Settings.camera_speed)
 
         enemy1 = Character("images/bacteria_orange.png", name="enemy1")
@@ -34,7 +34,7 @@ class GameScreen(Screen):
 
         rect = Obstacle("images/tmp.png", name="rect")
         rect.set_position(Vector(100, 100))
-        self.add_entity_on_layer(self.LN.MAP, rect)
+        self.add_entities_on_layer(self.LN.MAP, rect)
 
         # INTERFACE
         self.add_layer(self.LN.INTERFACE, pg.Rect(i, i, w - 2 * i, h - 2 * i))
@@ -43,7 +43,7 @@ class GameScreen(Screen):
             Vector(50, 10), Vector(30, 30), color=Colors.green, bg_color=Colors.silver
         )
         barHP.update_load(0.8)
-        self.add_entity_on_layer(self.LN.INTERFACE, barHP)
+        self.add_entities_on_layer(self.LN.INTERFACE, barHP)
 
         self.set_camera_zoom(Settings.camera_zoom)
 
