@@ -6,6 +6,9 @@ from config import Settings
 from config import Colors, print_in_log_file
 
 
+# INTERFACES AND PRIMITIVES
+
+
 class IRenderable(ABC):
     @abstractmethod
     def update(
@@ -48,7 +51,7 @@ class IEventProcessable(ABC):
 
 
 class Model:
-    def __init__(self, elements_type = object) -> None:
+    def __init__(self, elements_type=object) -> None:
         self._elements_type = elements_type
         self._elements: list[self._elements_type] = []
 
@@ -69,6 +72,9 @@ class Model:
 
     def modify(self, index: int, new_element):
         self._elements[index] = new_element
+
+
+# DISPLAYED ENTITIES
 
 
 class Entity(pg.sprite.Sprite, IRenderable, IPositionable):
@@ -266,6 +272,9 @@ class RasterEntity(Entity):
             )
         image = pg.transform.scale(self.image, size.pair())
         screen_surface.blit(image, position_on_screen.pair())
+
+
+# PHYSICAL ENTITIES
 
 
 class PhysicsEntity(RasterEntity, IPhysicable):
@@ -486,6 +495,9 @@ class Player(Character, IEventProcessable):
             self.velocity *= self.speed / abs(self.velocity)
 
 
+# ENTITY CONTROLLERS
+
+
 class Camera(Entity):
     """
     Класс обладающий областью видимости, который при помощи методов отображет объекты в ней.\\
@@ -567,22 +579,26 @@ class Layer(Model):
         self.camera.render(screen_surface, self._elements)
 
 
-class Screen:
+class Screen(IEventProcessable):
     """Набор слоёв"""
 
-    def __init__(self, surface: pg.Surface) -> None:
+    def __init__(self, surface: pg.Surface, display_area: pg.Rect) -> None:
         self.surface = surface
+        self.display_area = display_area
         self.layers: dict[str, Layer] = {}
         self.sorted_layers: list[str] = []
 
-    def add_layer(self, l_name: str, display_area: pg.Rect, z_index: int = 1):
-        self.layers[l_name] = Layer(Camera.create_by_rect(display_area), z_index)
-        self.sorted_layers = list(
-            zip(*sorted(self.layers.items(), key=lambda it: it[1].z_index))
-        )[0]
+    def add_layer(self, l_name: str, z_index: int = 1):
+        camera = Camera.create_by_rect(self.display_area)
+        self.layers[l_name] = Layer(camera, z_index)
+        tmp = sorted(self.layers.items(), key=lambda it: it[1].z_index)
+        self.sorted_layers = list(zip(*tmp))[0]
 
     def add_entities_on_layer(self, l_name: str, entities: Union[Entity, Iterable]):
         self.layers[l_name].add(entities)
+
+    def get_entities(self, l_name: str) -> list[Entity]:
+        return self.layers[l_name].get_elements()
 
     def set_tracked_entity(self, l_name: str, entity: Entity, speed=0.0):
         self.layers[l_name].set_tracked_entity(entity, speed)
@@ -591,11 +607,8 @@ class Screen:
         for l_name in self.sorted_layers:
             self.layers[l_name].render(self.surface)
 
-    def get_entities(self, l_name: str) -> list[Entity]:
-        return self.layers[l_name].get_elements()
-
     @abstractmethod
-    def event_tracking(self, event: pg.event.Event):
+    def process_event(self, event: pg.event.Event):
         pass
 
     @abstractmethod

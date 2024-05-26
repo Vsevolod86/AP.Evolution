@@ -9,17 +9,18 @@ from geometry.vector import Vector
 
 class GameScreen(Screen):
     def __init__(self, surface: pg.Surface) -> None:
-        super().__init__(surface)
+        w, h, i = surface.get_width(), surface.get_height(), 5
+        display_area = pg.Rect(i, i, w - 2 * i, h - 2 * i)
+        super().__init__(surface, display_area)
         self.LN = Enum("LN", ["BG", "MAP", "INTERFACE"])  # Layers Names
 
         # BackGround
-        w, h, i = surface.get_width(), surface.get_height(), 5
-        self.add_layer(self.LN.BG, pg.Rect(i, i, w - 2 * i, h - 2 * i))
+        self.add_layer(self.LN.BG, 1)
         bg = Entity(Vector(w, h), Vector(i, i), self.LN.BG, Settings.bg_color)
         self.add_entities_on_layer(self.LN.BG, bg)
 
         # MAP
-        self.add_layer(self.LN.MAP, pg.Rect(i, i, w - 2 * i, h - 2 * i))
+        self.add_layer(self.LN.MAP, 2)
 
         self.player = Player("images/bacteria_green.png", "player")
         self.add_entities_on_layer(self.LN.MAP, self.player)
@@ -37,7 +38,7 @@ class GameScreen(Screen):
         self.add_entities_on_layer(self.LN.MAP, rect)
 
         # INTERFACE
-        self.add_layer(self.LN.INTERFACE, pg.Rect(i, i, w - 2 * i, h - 2 * i))
+        self.add_layer(self.LN.INTERFACE, 3)
 
         barHP = Bar(
             Vector(50, 10), Vector(30, 30), color=Colors.green, bg_color=Colors.silver
@@ -47,7 +48,7 @@ class GameScreen(Screen):
 
         self.set_camera_zoom(Settings.camera_zoom)
 
-    def event_tracking(self, event: pg.event.Event):
+    def process_event(self, event: pg.event.Event):
         """Отслеживание событий"""
         self.player.process_event(event)
 
@@ -78,7 +79,7 @@ class Game:
             if event.type == pg.QUIT:
                 self.is_game_run = False  # "закрыть игру"
             elif self.is_game_run:
-                screen.event_tracking(event)
+                screen.process_event(event)
 
     def run(self) -> None:
         """Запуск цикла игры, который
@@ -87,7 +88,7 @@ class Game:
         3) рендерит объекты
         """
 
-        main_screen: Screen = self.game_screen
+        current_screen: Screen = self.game_screen
         # Цикл игры
         cadr = 0
         while self.is_game_run:
@@ -95,14 +96,14 @@ class Game:
             cadr += 1
             Settings.FPS_clock.tick(Settings.FPS)
             # print_in_log_file("Event")
-            self.event_tracking(main_screen)
+            self.event_tracking(current_screen)
 
             # print_in_log_file("Update")
-            main_screen.process_entities()
+            current_screen.process_entities()
 
             # print_in_log_file("Render")
             self.surface.fill(Colors.pink)
-            main_screen.render()
+            current_screen.render()
 
             # Обновление экрана (всегда в конце цикла)
             pg.display.flip()
