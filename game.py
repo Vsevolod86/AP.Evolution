@@ -49,7 +49,7 @@ class GameScreen(Screen):
 
     def event_tracking(self, event: pg.event.Event):
         """Отслеживание событий"""
-        self.player.event_tracking(event)
+        self.player.process_event(event)
 
     def process_entities(self):
         # self.player.process_entities(self.get_entities(self.LN.MAP))
@@ -57,9 +57,9 @@ class GameScreen(Screen):
             entity.process(self.get_entities(self.LN.MAP))
             print_in_log_file(f"{entity.name}, {entity.v}")
 
-    def set_camera_zoom(self, zoomLevel: float):
+    def set_camera_zoom(self, zoom: float):
         for layer_name in [self.LN.MAP, self.LN.BG]:
-            self.layers[layer_name].set_zoom(zoomLevel)
+            self.layers[layer_name].set_zoom(zoom)
 
 
 class Game:

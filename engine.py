@@ -12,7 +12,7 @@ class IRenderable(ABC):
         self,
         screen_surface: pg.Surface,
         convert_position: Callable[[Vector], Vector],
-        zoomLevel: float,
+        zoom: float,
     ):
         pass
 
@@ -38,6 +38,12 @@ class IPositionable(ABC):
 
     @abstractmethod
     def set_indent(self, new_indent: Vector) -> None:
+        pass
+
+
+class IEventProcessable(ABC):
+    @abstractmethod
+    def process_event(self, event: pg.event.Event):
         pass
 
 
@@ -96,10 +102,10 @@ class Entity(pg.sprite.Sprite, IRenderable, IPositionable):
         self,
         screen_surface: pg.Surface,
         convert_position: Callable[[Vector], Vector],
-        zoomLevel: float,
+        zoom: float,
     ):
         """convert_position - функция для преобразования позиции объекта в его позицию на экране"""
-        size = self.size * zoomLevel
+        size = self.size * zoom
         position_on_screen = convert_position(self.get_position())
         rect = pg.Rect(*position_on_screen.pair(), *size.pair())
         pg.draw.rect(screen_surface, self.color, rect)
@@ -134,12 +140,12 @@ class SubElement(IRenderable):
         self,
         screen_surface: pg.Surface,
         convert_position: Callable[[Vector], Vector],
-        zoomLevel: float,
+        zoom: float,
     ):
         self.sub_entity.update(
             screen_surface=screen_surface,
             convert_position=convert_position,
-            zoomLevel=zoomLevel,
+            zoom=zoom,
         )
 
 
@@ -160,13 +166,13 @@ class SubElementModel(Model, IRenderable):
         self,
         screen_surface: pg.Surface,
         convert_position: Callable[[Vector], Vector],
-        zoomLevel: float,
+        zoom: float,
     ):
         for entity in self._elements:
             entity.update(
                 screen_surface=screen_surface,
                 convert_position=convert_position,
-                zoomLevel=zoomLevel,
+                zoom=zoom,
             )
 
 
@@ -196,15 +202,15 @@ class Bar(Entity):
         self,
         screen_surface: pg.Surface,
         convert_position: Callable[[Vector], Vector],
-        zoomLevel: float,
+        zoom: float,
     ):
         super().update(
             screen_surface=screen_surface,
             convert_position=convert_position,
-            zoomLevel=zoomLevel,
+            zoom=zoom,
         )
         self.sub_elements.update_position()
-        self.sub_elements.update(screen_surface, convert_position, zoomLevel)
+        self.sub_elements.update(screen_surface, convert_position, zoom)
 
     def update_load(self, percent: float):
         self.__percent = max(0, min(percent, 1))
@@ -240,16 +246,16 @@ class RasterEntity(Entity):
         self,
         screen_surface: pg.Surface,
         convert_position: Callable[[Vector], Vector],
-        zoomLevel: float,
+        zoom: float,
     ):
         """convert_position - функция для преобразования позиции объекта в его позицию на экране"""
-        size = self.size * zoomLevel
+        size = self.size * zoom
         position_on_screen = convert_position(self.get_position())
         if Settings.developer_mode:
             super().update(
                 screen_surface=screen_surface,
                 convert_position=convert_position,
-                zoomLevel=zoomLevel,
+                zoom=zoom,
             )
         image = pg.transform.scale(self.image, size.pair())
         screen_surface.blit(image, position_on_screen.pair())
@@ -309,7 +315,7 @@ class PhysicsEntity(RasterEntity, IPhysicable):
     @staticmethod
     def apply_repulsion(obj1: "PhysicsEntity", obj2: "PhysicsEntity"):
         """Применение силы отталкивания к объектам"""
-        # TODO: переделать логику
+        # TODO: переделать логику + сделать отталкивание сильнее
         distance = abs(obj1.center - obj2.center)
         max_distance = abs(obj1.size + obj2.size) / 2
         intersection_coeff = distance / max_distance
@@ -404,17 +410,21 @@ class Character(PhysicsEntity):
         self,
         screen_surface: pg.Surface,
         convert_position: Callable[[Vector], Vector],
-        zoomLevel: float,
+        zoom: float,
     ):
         super().update(
             screen_surface=screen_surface,
             convert_position=convert_position,
-            zoomLevel=zoomLevel,
+            zoom=zoom,
         )
-        self.sub_elements.update(screen_surface, convert_position, zoomLevel)
+        self.sub_elements.update(
+            screen_surface=screen_surface,
+            convert_position=convert_position,
+            zoom=zoom,
+        )
 
 
-class Player(Character):
+class Player(Character, IEventProcessable):
     def __init__(self, path2image: str, name="Player") -> None:
         super().__init__(
             path2image=path2image,
@@ -434,17 +444,17 @@ class Player(Character):
                 self.clamped_buttons[name] = 0
                 self.buttons[button] = name
 
-    def process_clamped_buttons(self):
-        for name, _ in self.clamped_buttons.items():
-            if self.clamped_buttons[name] != 0:
-                self.clamped_buttons[name] += Settings.dt()
-
     def process(self, entities: list[PhysicsEntity]):
         self.process_clamped_buttons()
         self.process_movement()
         super().process(entities)
 
-    def event_tracking(self, event: pg.event.Event):
+    def process_clamped_buttons(self):
+        for name, _ in self.clamped_buttons.items():
+            if self.clamped_buttons[name] != 0:
+                self.clamped_buttons[name] += Settings.dt()
+
+    def process_event(self, event: pg.event.Event):
         is_pressed = event.type == pg.KEYDOWN
         is_released = event.type == pg.KEYUP
         if is_pressed or is_released:
@@ -475,9 +485,9 @@ class Camera:
     При помощи метода set_tracked_entity, можно прикрепить камеру к сущности и следить за ней.
     """
 
-    def __init__(self, rect: pg.Rect, zoomLevel=1.0) -> None:
+    def __init__(self, rect: pg.Rect, zoom=1.0) -> None:
         self.rect = rect
-        self.zoomLevel = zoomLevel
+        self.zoom = zoom
         self.world_position = Vector(0.0, 0.0)
 
         self.speed = 0.0
@@ -488,8 +498,8 @@ class Camera:
         self.speed = speed
         self.trackedEntity = entity
 
-    def set_zoom(self, new_zoom_level: float):
-        self.zoomLevel = new_zoom_level
+    def set_zoom(self, new_zoom: float):
+        self.zoom = new_zoom
 
     def render(self, screen_surface: pg.Surface, entities: list[Entity]) -> None:
         position_on_camera = lambda position: position
@@ -501,15 +511,15 @@ class Camera:
 
             target_position = entity.get_position() + entity.size / 2
             self.world_position = self.world_position * (1 - s) + target_position * s
-            offset = position + size / 2 - (self.zoomLevel * self.world_position)
-            position_on_camera = lambda position: (self.zoomLevel * position) + offset
+            offset = position + size / 2 - (self.zoom * self.world_position)
+            position_on_camera = lambda position: (self.zoom * position) + offset
 
         # START render
         screen_surface.set_clip(self.rect)
 
         # render entities
         for e in entities:
-            e.update(screen_surface, position_on_camera, self.zoomLevel)
+            e.update(screen_surface, position_on_camera, self.zoom)
 
         # FINISH render
         screen_surface.set_clip(None)
@@ -536,8 +546,8 @@ class Layer:
         for entity in entities:
             self.add_entity(entity)
 
-    def set_zoom(self, new_zoom_level: float):
-        self.camera.set_zoom(new_zoom_level)
+    def set_zoom(self, new_zoom: float):
+        self.camera.set_zoom(new_zoom)
 
 
 class Screen:
