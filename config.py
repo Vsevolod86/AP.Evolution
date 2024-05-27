@@ -35,15 +35,6 @@ class GameSettings:
         return GameSettings.FPS_clock.get_time()
 
 
-class ButtonSettings:
-    move_buttons = {
-        "right": pg.K_d,
-        "left": pg.K_a,
-        "up": pg.K_w,
-        "down": pg.K_s,
-    }
-
-
 class PhysicsSettings:
     max_speed = 0.2
     separation_speed = max_speed * 0.1
@@ -51,14 +42,30 @@ class PhysicsSettings:
     error = 0.001
 
 
-class DefaultActorSettings:
+class Action(Enum):
+    RIGHT = "right"
+    LEFT = "left"
+    UP = "up"
+    DOWN = "down"
+
+
+class DefaultCharacterSettings:
     speed = PhysicsSettings.max_speed * 0.5
     mass = 10
     weight = 10
 
 
+class ButtonSettings:
+    move_buttons = {
+        Action.RIGHT: pg.K_d,
+        Action.LEFT: pg.K_a,
+        Action.UP: pg.K_w,
+        Action.DOWN: pg.K_s,
+    }
+
+
 class Settings(
-    DefaultActorSettings,
+    DefaultCharacterSettings,
     PhysicsSettings,
     ButtonSettings,
     GameSettings,
@@ -73,3 +80,4 @@ def print_in_log_file(msg: str):
     with open(GameSettings.log_file_name, "a") as f:
         f.write(msg + "\n")
         print(msg)
+

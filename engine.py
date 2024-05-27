@@ -2,7 +2,7 @@ from abc import abstractmethod, ABC
 from typing import Callable, Iterable, Union
 import pygame as pg
 from geometry.vector import Vector
-from config import Settings
+from config import Settings, Action
 from config import Colors, print_in_log_file
 
 
@@ -410,7 +410,10 @@ class Character(PhysicsEntity):
         )
         self.speed = Settings.speed
         self.sub_elements = SubElementModel()
-        # Шкала здоровья
+        self.__set_HP_bar()
+        self.__set_action_duration()
+
+    def __set_HP_bar(self):
         self.HPbar = Bar.create_bar(self.size.x * Settings.bar_scale)
         indent = self.size - Vector(
             (self.center + self.HPbar.center).x, -self.HPbar.size.y * 0.2
@@ -418,9 +421,29 @@ class Character(PhysicsEntity):
         self.HPbar.set_indent(indent)
         self.sub_elements.add(SubElement(self, self.HPbar, 1))
 
+    def __set_action_duration(self):
+        self.action_duration: dict[str, int] = {}
+        # key - название действия, value - время выполнения
+        for action in Action:
+            self.action_duration[action] = 0
+
     def process(self, entities: list[PhysicsEntity]):
+        self.process_movement()
         super().process(entities)
         self.sub_elements.update_position()
+
+    def process_movement(self):
+        if self.action_duration[Action.RIGHT]:
+            self.velocity.x = self.speed
+        if self.action_duration[Action.LEFT]:
+            self.velocity.x = -self.speed
+        if self.action_duration[Action.UP]:
+            self.velocity.y = -self.speed
+        if self.action_duration[Action.DOWN]:
+            self.velocity.y = self.speed
+
+        if abs(self.velocity) > self.speed:
+            self.velocity *= self.speed / abs(self.velocity)
 
     def update(
         self,
@@ -450,25 +473,21 @@ class Player(Character, IEventProcessable):
 
     def __set_clamped_buttons(self):
         """Создаёт поля связанные с кнопоками"""
-        self.clamped_buttons: dict[str, int] = {}
-        # key - название кнопки, value - время удержания
-        self.buttons: dict[int, str] = {}
-        # key - номер кнопки в pygame, value - название кнопки
+        self.buttons: dict[int, Action] = {}
+        # key - номер кнопки в pygame, value - название действия
         list_buttons = [Settings.move_buttons]
         for buttons in list_buttons:
             for name, button in buttons.items():
-                self.clamped_buttons[name] = 0
                 self.buttons[button] = name
 
     def process(self, entities: list[PhysicsEntity]):
         self.process_clamped_buttons()
-        self.process_movement()
         super().process(entities)
 
     def process_clamped_buttons(self):
-        for name, _ in self.clamped_buttons.items():
-            if self.clamped_buttons[name] != 0:
-                self.clamped_buttons[name] += Settings.dt()
+        for name, _ in self.action_duration.items():
+            if self.action_duration[name] != 0:
+                self.action_duration[name] += Settings.dt()
 
     def process_event(self, event: pg.event.Event):
         is_pressed = event.type == pg.KEYDOWN
@@ -477,22 +496,9 @@ class Player(Character, IEventProcessable):
             if event.key in self.buttons:
                 name = self.buttons[event.key]
                 if is_pressed:
-                    self.clamped_buttons[name] += Settings.dt()
+                    self.action_duration[name] += Settings.dt()
                 if is_released:
-                    self.clamped_buttons[name] = 0
-
-    def process_movement(self):
-        if self.clamped_buttons["right"]:
-            self.velocity.x = self.speed
-        if self.clamped_buttons["left"]:
-            self.velocity.x = -self.speed
-        if self.clamped_buttons["up"]:
-            self.velocity.y = -self.speed
-        if self.clamped_buttons["down"]:
-            self.velocity.y = self.speed
-
-        if abs(self.velocity) > self.speed:
-            self.velocity *= self.speed / abs(self.velocity)
+                    self.action_duration[name] = 0
 
 
 # ENTITY CONTROLLERS
