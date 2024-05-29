@@ -40,6 +40,8 @@ class PhysicsSettings:
     separation_speed = max_speed * 0.1
     friction_coefficient = 0.02
     error = 0.001
+    repulsion_force = 100 
+    energy_absorption = 0.1
 
 
 class Action(Enum):
@@ -47,6 +49,7 @@ class Action(Enum):
     LEFT = "left"
     UP = "up"
     DOWN = "down"
+    GET_DAMAGE = "get_damage"
 
 
 class DefaultCharacterSettings:

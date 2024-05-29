@@ -4,6 +4,7 @@ import pygame as pg
 from geometry.vector import Vector
 from config import Settings, Action
 from config import Colors, print_in_log_file
+from os.path import exists
 
 
 # INTERFACES AND PRIMITIVES
@@ -97,6 +98,22 @@ class Entity(pg.sprite.Sprite, IRenderable, IPositionable):
     def center(self):
         return self.get_position() + self.size / 2
 
+    @property
+    def left(self):
+        return self.get_position().x
+
+    @property
+    def right(self):
+        return self.get_position().x + self.size.x
+
+    @property
+    def top(self):
+        return self.get_position().y
+
+    @property
+    def bottom(self):
+        return self.get_position().y + self.size.y
+
     def set_position(self, new_position: Vector) -> None:
         self.__position = self._indent + new_position
         self.rect.left = int(self.__position.x)
@@ -105,7 +122,7 @@ class Entity(pg.sprite.Sprite, IRenderable, IPositionable):
     def set_indent(self, new_indent: Vector) -> None:
         self._indent = new_indent
 
-    def move_position(self, delta_position: Vector) -> None:
+    def shift_position(self, delta_position: Vector) -> None:
         self.set_position(self.__position + delta_position)
 
     def get_position(self):
@@ -252,7 +269,7 @@ class RasterEntity(Entity):
         )
 
     def __set_image(self, path2image: str):
-        # TODO: добавить проверку на существование изображения
+        assert exists(path2image)
         self.image = pg.image.load(path2image)
 
     def update(
@@ -295,6 +312,11 @@ class PhysicsEntity(RasterEntity, IPhysicable):
         assert mass >= 0
         self.velocity = Vector(0, 0)
 
+    def get_callbacks_for_collision_objs(self) -> list[Callable[..., None]]:
+        return [
+            CollisionSystem.handle_collision,
+        ]
+
     @property
     def is_static(self) -> bool:
         return not self.is_movable
@@ -308,7 +330,7 @@ class PhysicsEntity(RasterEntity, IPhysicable):
         return self.velocity
 
     def move_position(self, delta_position: Vector) -> None:
-        super().move_position(delta_position * Settings.dt())
+        self.shift_position(delta_position * Settings.dt())
 
     def move(self, velocity) -> None:
         """Обновление скорости и позиции"""
@@ -316,69 +338,26 @@ class PhysicsEntity(RasterEntity, IPhysicable):
             return
         # ограничиваю скорость снизу
         if abs(velocity) <= Settings.error:
-            velocity = Vector(0.0, 0.0)
+            velocity = Vector(0, 0)
             return
         # ограничиваю скорость сверху
         if Settings.max_speed < abs(velocity):
             velocity *= Settings.max_speed / abs(velocity)
         self.move_position(velocity)
 
-    def apply_friction(self, friction_coefficient: float) -> None:
-        """Применение силы трения к объекту"""
-        if abs(self.velocity) > 0:
-            self.velocity *= 1 - friction_coefficient
-
-    @staticmethod
-    def apply_repulsion(obj1: "PhysicsEntity", obj2: "PhysicsEntity"):
-        """Применение силы отталкивания к объектам"""
-        # TODO: переделать логику + сделать отталкивание сильнее
-        distance = abs(obj1.center - obj2.center)
-        max_distance = abs(obj1.size + obj2.size) / 2
-        intersection_coeff = distance / max_distance
-        intersection_coeff = min(max(intersection_coeff, 0.1), 0.9)
-
-        direction_of_move = (obj1.center - obj2.center).get_normalization()
-        if abs(direction_of_move) == 0:
-            direction_of_move = Vector(1, 0)
-
-        d_pos = intersection_coeff * Settings.separation_speed * direction_of_move
-        obj1.move(d_pos)
-        obj2.move(-d_pos)
-        print_in_log_file("apply_repulsion")
-
     def process(self, entities: list["PhysicsEntity"]) -> None:
         if self.is_movable:
             self.apply_friction(Settings.friction_coefficient)
             self.move(self.velocity)
         # проверка коллизий
-        collide_group = Entity.collide_entities(self, entities)
-        for entity in collide_group:
-            PhysicsEntity.handle_collision(self, entity)
+        for entity in Entity.collide_entities(self, entities):
+            for callback in self.get_callbacks_for_collision_objs():
+                callback(self, entity)
 
-    @staticmethod
-    def handle_collision(obj1: "PhysicsEntity", obj2: "PhysicsEntity"):
-        obj1.move_position(-obj1.velocity)
-        # оба статические
-        if obj1.is_static and obj2.is_static:
-            return
-        # оба динамические
-        new_velocity = lambda v1, m1, v2, m2: ((m1 - m2) * v1 + 2 * m2 * v2) / (m1 + m2)
-        if obj1.is_movable and obj2.is_movable:
-            v1 = obj1.v
-            v2 = obj2.v
-            obj1.velocity = new_velocity(v1, obj1.m, v2, obj2.m)
-            obj2.velocity = new_velocity(v2, obj2.m, v1, obj1.m)
-        else:
-            # один динамический, другой статический
-            if obj2.is_movable:
-                obj1, obj2 = obj2, obj1
-            # первый динамический, второй статический
-            # TODO: переделать учтя направление после отталкивания (отталкиваться от нормали)
-            obj1.velocity *= -1
-
-        if obj1.rect.colliderect(obj2.rect):
-            PhysicsEntity.apply_repulsion(obj1, obj2)
-        print_in_log_file("collision")
+    def apply_friction(self, friction_coefficient: float) -> None:
+        """Применение силы трения к объекту"""
+        if abs(self.velocity) > 0:
+            self.velocity *= 1 - friction_coefficient
 
 
 class Obstacle(PhysicsEntity):
@@ -408,6 +387,9 @@ class Character(PhysicsEntity):
             name=name,
             mass=mass,
         )
+        self.max_HP = Settings.max_HP
+        self.HP = self.max_HP
+        self.damage = Settings.damage
         self.speed = Settings.speed
         self.sub_elements = SubElementModel()
         self.__set_HP_bar()
@@ -427,12 +409,18 @@ class Character(PhysicsEntity):
         for action in Action:
             self.action_duration[action] = 0
 
+    def get_callbacks_for_collision_objs(self):
+        return [
+            CollisionSystem.handle_collision,
+            CollisionSystem.handle_attack,
+        ]
+
     def process(self, entities: list[PhysicsEntity]):
-        self.process_movement()
+        self.process_motion_intent()
         super().process(entities)
         self.sub_elements.update_position()
 
-    def process_movement(self):
+    def process_motion_intent(self):
         if self.action_duration[Action.RIGHT]:
             self.velocity.x = self.speed
         if self.action_duration[Action.LEFT]:
@@ -451,6 +439,7 @@ class Character(PhysicsEntity):
         convert_position: Callable[[Vector], Vector],
         zoom: float,
     ):
+        self.HPbar.update_load(self.HP / self.max_HP)
         super().update(
             screen_surface=screen_surface,
             convert_position=convert_position,
@@ -502,6 +491,82 @@ class Player(Character, IEventProcessable):
 
 
 # ENTITY CONTROLLERS
+
+
+class CollisionSystem:
+
+    @staticmethod
+    def handle_collision(obj1: PhysicsEntity, obj2: PhysicsEntity):
+        """Обработка столкновения"""
+        if obj1.is_static and obj2.is_static:
+            return
+        elif obj1.is_movable and obj2.is_movable:
+            CollisionSystem._handle_movables_collision(obj1, obj2)
+        else:
+            m_obj = obj1 if obj1.is_movable else obj2
+            s_obj = obj1 if obj1.is_static else obj2
+            CollisionSystem._handle_movable_and_static_collision(m_obj, s_obj)
+
+        if obj1.rect.colliderect(obj2.rect):
+            CollisionSystem.handle_repulsion(obj1, obj2)
+        print_in_log_file("collision")
+
+    @staticmethod
+    def _handle_movables_collision(obj1: PhysicsEntity, obj2: PhysicsEntity):
+        new_velocity = lambda v1, m1, v2, m2: ((m1 - m2) * v1 + 2 * m2 * v2) / (m1 + m2)
+        v1 = obj1.v
+        v2 = obj2.v
+        obj1.velocity = new_velocity(v1, obj1.m, v2, obj2.m)
+        obj2.velocity = new_velocity(v2, obj2.m, v1, obj1.m)
+
+    @staticmethod
+    def _handle_movable_and_static_collision(
+        movable_obj: PhysicsEntity, static_obj: PhysicsEntity
+    ):
+        # Вычисляем вектор "вхождения" подвижного объекта в неподвижный
+        delta = Vector(0, 0)
+
+        if movable_obj.velocity.x > 0:
+            delta.x = static_obj.left - movable_obj.right
+        elif movable_obj.velocity.x < 0:
+            delta.x = static_obj.right - movable_obj.left
+
+        if movable_obj.velocity.y > 0:
+            delta.y = static_obj.top - movable_obj.bottom
+        elif movable_obj.velocity.y < 0:
+            delta.y = static_obj.bottom - movable_obj.top
+
+        # Корректируем позицию и скорость объекта
+        if abs(delta.x) < abs(delta.y):
+            delta.y = 0
+            movable_obj.velocity.x *= -(1 - Settings.energy_absorption)
+        else:
+            delta.x = 0
+            movable_obj.velocity.y *= -(1 - Settings.energy_absorption)
+        movable_obj.shift_position(delta)
+
+    @staticmethod
+    def handle_repulsion(obj1: PhysicsEntity, obj2: PhysicsEntity):
+        """Применение силы отталкивания к объектам"""
+        MIN_DISTANCE = 0.01
+        distance = max(abs(obj1.center - obj2.center), MIN_DISTANCE)
+        intersection_coeff = max(Settings.repulsion_force / distance, 0.1)
+
+        direction_of_move = (obj1.center - obj2.center).get_normalization()
+        if abs(direction_of_move) == 0:
+            direction_of_move = Vector(1, 0)
+
+        d_pos = intersection_coeff * Settings.separation_speed * direction_of_move
+        obj1.move(d_pos)
+        obj2.move(-d_pos)
+        print_in_log_file("handle_repulsion")
+
+    @staticmethod
+    def handle_attack(obj1: Character, obj2: Character):
+        if isinstance(obj1, Character) and isinstance(obj2, Character):
+            obj1.HP -= obj2.damage
+            obj2.HP -= obj1.damage
+        print_in_log_file("attack")
 
 
 class Camera(Entity):
