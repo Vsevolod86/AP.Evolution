@@ -94,6 +94,7 @@ class Entity(pg.sprite.Sprite, IRenderable, IPositionable):
         self._indent = Vector(0, 0)
         self.rect = pg.Rect(*position.pair(), *self.size.pair())
         self.set_position(position)
+        self.sub_elements = SubElementModel()
 
     @property
     def center(self):
@@ -220,7 +221,6 @@ class Bar(Entity):
     ) -> None:
         super().__init__(size, position, name, bg_color)
         self.__percent = 1
-        self.sub_elements = SubElementModel()
         # Шкала
         self.indent = 0.1 * Vector(self.size.min(), self.size.min())
         self.movable_bar = Entity(
@@ -388,13 +388,15 @@ class Character(PhysicsEntity):
             name=name,
             mass=mass,
         )
+        self.__set_base_specifications()
+        self.__set_HP_bar()
+        self.__set_action_duration()
+
+    def __set_base_specifications(self):
         self.max_HP = Settings.max_HP
         self.HP = self.max_HP
         self.damage = Settings.damage
         self.speed = Settings.speed
-        self.sub_elements = SubElementModel()
-        self.__set_HP_bar()
-        self.__set_action_duration()
 
     def __set_HP_bar(self):
         self.HPbar = Bar.create_bar(self.size.x * Settings.bar_scale)
