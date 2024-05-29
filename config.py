@@ -18,7 +18,7 @@ class ScreenSettings:
     bg_color = Colors.turquoise
 
     camera_speed = 1  # the speed of the camera keeping up with the player
-    camera_zoom = 2
+    camera_zoom = 1
 
 
 class GameSettings:
@@ -28,20 +28,11 @@ class GameSettings:
     log_file_name = "log.txt"
     default_color = Colors.red
     bar_scale = 1.25
-    bar_aspect_ratio = 5
+    bar_aspect_ratio = 8
 
     @staticmethod
     def dt():
         return GameSettings.FPS_clock.get_time()
-
-
-class ButtonSettings:
-    move_buttons = {
-        "right": pg.K_d,
-        "left": pg.K_a,
-        "up": pg.K_w,
-        "down": pg.K_s,
-    }
 
 
 class PhysicsSettings:
@@ -49,16 +40,36 @@ class PhysicsSettings:
     separation_speed = max_speed * 0.1
     friction_coefficient = 0.02
     error = 0.001
+    repulsion_force = 100 
+    energy_absorption = 0.1
 
 
-class DefaultActorSettings:
+class Action(Enum):
+    RIGHT = "right"
+    LEFT = "left"
+    UP = "up"
+    DOWN = "down"
+    GET_DAMAGE = "get_damage"
+
+
+class DefaultCharacterSettings:
     speed = PhysicsSettings.max_speed * 0.5
     mass = 10
-    weight = 10
+    max_HP = 50
+    damage = 1
+
+
+class ButtonSettings:
+    move_buttons = {
+        Action.RIGHT: pg.K_d,
+        Action.LEFT: pg.K_a,
+        Action.UP: pg.K_w,
+        Action.DOWN: pg.K_s,
+    }
 
 
 class Settings(
-    DefaultActorSettings,
+    DefaultCharacterSettings,
     PhysicsSettings,
     ButtonSettings,
     GameSettings,
@@ -73,3 +84,4 @@ def print_in_log_file(msg: str):
     with open(GameSettings.log_file_name, "a") as f:
         f.write(msg + "\n")
         print(msg)
+

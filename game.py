@@ -22,7 +22,7 @@ class GameScreen(Screen):
         # MAP
         self.add_layer(self.LN.MAP, 2)
 
-        self.player = Player("images/bacteria_green.png", "player")
+        self.player = Player("images/GB_body.png", "player")
         self.add_entities_on_layer(self.LN.MAP, self.player)
         self.set_tracked_entity(self.LN.MAP, self.player, Settings.camera_speed)
 
