@@ -2,11 +2,11 @@ from abc import abstractmethod, ABC
 from typing import Callable, Iterable, Union, List, Type, Tuple
 
 # from future import annotations
+from os.path import exists
 import pygame as pg
 from geometry.vector import Vector
 from config import Settings, Action
 from config import Colors, print_in_log_file
-from os.path import exists
 
 
 # INTERFACES AND PRIMITIVES

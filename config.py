@@ -40,7 +40,7 @@ class PhysicsSettings:
     separation_speed = max_speed * 0.1
     friction_coefficient = 0.02
     error = 0.001
-    repulsion_force = 100 
+    repulsion_force = 100
     energy_absorption = 0.1
 
 
@@ -88,4 +88,3 @@ def print_in_log_file(msg: str):
     with open(GameSettings.log_file_name, "a") as f:
         f.write(msg + "\n")
         print(msg)
-
