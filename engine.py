@@ -1,5 +1,6 @@
 from abc import abstractmethod, ABC
-from typing import Callable, Iterable, Union
+from typing import Callable, Iterable, Union, List, Type, Tuple
+# from future import annotations
 import pygame as pg
 from geometry.vector import Vector
 from config import Settings
@@ -26,7 +27,7 @@ class IPhysicable(ABC):
         pass
 
     @abstractmethod
-    def process(self, entities: list["PhysicsEntity"]) -> None:
+    def process(self, entities: List[Type['IPhysicable']]) -> None:
         pass
 
 
@@ -124,7 +125,7 @@ class Entity(pg.sprite.Sprite, IRenderable, IPositionable):
         pg.draw.rect(screen_surface, self.color, rect)
 
     @staticmethod
-    def collide_entities(entity, entities: list["Entity"]) -> list["Entity"]:
+    def collide_entities(entity, entities: List[Type["Entity"]]) -> List[Type["Entity"]]:
         """entities: сущности с которыми может пересекаться объект
         return: сущности с которыми пересекается объект (исключая себя)"""
         collide_group = pg.sprite.spritecollide(entity, entities, False)
@@ -197,8 +198,8 @@ class Bar(Entity):
         size: Vector,
         position=Vector(0, 0),
         name="Bar",
-        color: tuple[int] = Colors.green,
-        bg_color: tuple[int] = Colors.silver,
+        color: Tuple[int] = Colors.green,
+        bg_color: Tuple[int] = Colors.silver,
     ) -> None:
         super().__init__(size, position, name, bg_color)
         self.__percent = 1
@@ -346,7 +347,7 @@ class PhysicsEntity(RasterEntity, IPhysicable):
         obj2.move(-d_pos)
         print_in_log_file("apply_repulsion")
 
-    def process(self, entities: list["PhysicsEntity"]) -> None:
+    def process(self, entities: List[Type["PhysicsEntity"]]) -> None:
         if self.is_movable:
             self.apply_friction(Settings.friction_coefficient)
             self.move(self.velocity)
@@ -418,7 +419,7 @@ class Character(PhysicsEntity):
         self.HPbar.set_indent(indent)
         self.sub_elements.add(SubElement(self, self.HPbar, 1))
 
-    def process(self, entities: list[PhysicsEntity]):
+    def process(self, entities: List[Type[PhysicsEntity]]):
         super().process(entities)
         self.sub_elements.update_position()
 
@@ -460,7 +461,7 @@ class Player(Character, IEventProcessable):
                 self.clamped_buttons[name] = 0
                 self.buttons[button] = name
 
-    def process(self, entities: list[PhysicsEntity]):
+    def process(self, entities: List[Type[PhysicsEntity]]):
         self.process_clamped_buttons()
         self.process_movement()
         super().process(entities)
@@ -530,7 +531,7 @@ class Camera(Entity):
     def set_zoom(self, new_zoom: float):
         self.zoom = new_zoom
 
-    def render(self, screen_surface: pg.Surface, entities: list[IRenderable]) -> None:
+    def render(self, screen_surface: pg.Surface, entities: List[Type[IRenderable]]) -> None:
         position_on_camera = lambda position: position
         if self.tracked_entity is not None:
             s = self.speed
@@ -597,7 +598,7 @@ class Screen(IEventProcessable):
     def add_entities_on_layer(self, l_name: str, entities: Union[Entity, Iterable]):
         self.layers[l_name].add(entities)
 
-    def get_entities(self, l_name: str) -> list[Entity]:
+    def get_entities(self, l_name: str) -> List[Type[Entity]]:
         return self.layers[l_name].get_elements()
 
     def set_tracked_entity(self, l_name: str, entity: Entity, speed=0.0):
