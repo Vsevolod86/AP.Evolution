@@ -1,5 +1,6 @@
 from abc import abstractmethod, ABC
 from typing import Callable, Iterable, Union, List, Type, Tuple
+
 # from future import annotations
 import pygame as pg
 from geometry.vector import Vector
@@ -28,7 +29,7 @@ class IPhysicable(ABC):
         pass
 
     @abstractmethod
-    def process(self, entities: List[Type['IPhysicable']]) -> None:
+    def process(self, entities: List[Type["IPhysicable"]]) -> None:
         pass
 
 
@@ -143,7 +144,9 @@ class Entity(pg.sprite.Sprite, IRenderable, IPositionable):
         pg.draw.rect(screen_surface, self.color, rect)
 
     @staticmethod
-    def collide_entities(entity, entities: List[Type["Entity"]]) -> List[Type["Entity"]]:
+    def collide_entities(
+        entity, entities: List[Type["Entity"]]
+    ) -> List[Type["Entity"]]:
         """entities: сущности с которыми может пересекаться объект
         return: сущности с которыми пересекается объект (исключая себя)"""
         collide_group = pg.sprite.spritecollide(entity, entities, False)
@@ -313,7 +316,7 @@ class PhysicsEntity(RasterEntity, IPhysicable):
         assert mass >= 0
         self.velocity = Vector(0, 0)
 
-    def get_callbacks_for_collision_objs(self) -> list[Callable[..., None]]:
+    def get_collision_objs_pipeline(self) -> list[Callable[..., None]]:
         return [
             CollisionSystem.handle_collision,
         ]
@@ -352,7 +355,7 @@ class PhysicsEntity(RasterEntity, IPhysicable):
             self.move(self.velocity)
         # проверка коллизий
         for entity in Entity.collide_entities(self, entities):
-            for callback in self.get_callbacks_for_collision_objs():
+            for callback in self.get_collision_objs_pipeline():
                 callback(self, entity)
 
     def apply_friction(self, friction_coefficient: float) -> None:
@@ -407,18 +410,18 @@ class Character(PhysicsEntity):
         self.sub_elements.add(SubElement(self, self.HPbar, 1))
 
     def __set_action_duration(self):
-        self.action_duration: dict[str, int] = {}
+        self.action_duration: dict[Action, int] = {}
         # key - название действия, value - время выполнения
         for action in Action:
             self.action_duration[action] = 0
 
-    def get_callbacks_for_collision_objs(self):
-        return [
-            CollisionSystem.handle_collision,
+    def get_collision_objs_pipeline(self):
+        return super().get_collision_objs_pipeline() + [
             CollisionSystem.handle_attack,
         ]
 
     def process(self, entities: List[Type[PhysicsEntity]]):
+        self.process_effects()
         self.process_motion_intent()
         super().process(entities)
         self.sub_elements.update_position()
@@ -435,6 +438,17 @@ class Character(PhysicsEntity):
 
         if abs(self.velocity) > self.speed:
             self.velocity *= self.speed / abs(self.velocity)
+
+    def process_effects(self):
+        for effect in Settings.effects:
+            new_t = max(self.action_duration[effect] - Settings.dt(), 0)
+            self.action_duration[effect] = new_t
+
+    def get_damage(self, damager: Type["Character"]):
+        if self.action_duration[Action.INVULNERABILITY] > 0:
+            return
+        self.HP -= damager.damage
+        self.action_duration[Action.INVULNERABILITY] = Settings.invulnerability
 
     def update(
         self,
@@ -478,8 +492,9 @@ class Player(Character, IEventProcessable):
 
     def process_clamped_buttons(self):
         for name, _ in self.action_duration.items():
-            if self.action_duration[name] != 0:
-                self.action_duration[name] += Settings.dt()
+            if name in Settings.movement:
+                if self.action_duration[name] != 0:
+                    self.action_duration[name] += Settings.dt()
 
     def process_event(self, event: pg.event.Event):
         is_pressed = event.type == pg.KEYDOWN
@@ -512,7 +527,6 @@ class CollisionSystem:
 
         if obj1.rect.colliderect(obj2.rect):
             CollisionSystem.handle_repulsion(obj1, obj2)
-        print_in_log_file("collision")
 
     @staticmethod
     def _handle_movables_collision(obj1: PhysicsEntity, obj2: PhysicsEntity):
@@ -562,14 +576,12 @@ class CollisionSystem:
         d_pos = intersection_coeff * Settings.separation_speed * direction_of_move
         obj1.move(d_pos)
         obj2.move(-d_pos)
-        print_in_log_file("handle_repulsion")
 
     @staticmethod
     def handle_attack(obj1: Character, obj2: Character):
         if isinstance(obj1, Character) and isinstance(obj2, Character):
-            obj1.HP -= obj2.damage
-            obj2.HP -= obj1.damage
-        print_in_log_file("attack")
+            obj1.get_damage(obj2)
+            obj2.get_damage(obj1)
 
 
 class Camera(Entity):
@@ -604,7 +616,9 @@ class Camera(Entity):
     def set_zoom(self, new_zoom: float):
         self.zoom = new_zoom
 
-    def render(self, screen_surface: pg.Surface, entities: List[Type[IRenderable]]) -> None:
+    def render(
+        self, screen_surface: pg.Surface, entities: List[Type[IRenderable]]
+    ) -> None:
         position_on_camera = lambda position: position
         if self.tracked_entity is not None:
             s = self.speed

@@ -49,14 +49,7 @@ class Action(Enum):
     LEFT = "left"
     UP = "up"
     DOWN = "down"
-    GET_DAMAGE = "get_damage"
-
-
-class DefaultCharacterSettings:
-    speed = PhysicsSettings.max_speed * 0.5
-    mass = 10
-    max_HP = 50
-    damage = 1
+    INVULNERABILITY = "invulnerability"
 
 
 class ButtonSettings:
@@ -66,6 +59,17 @@ class ButtonSettings:
         Action.UP: pg.K_w,
         Action.DOWN: pg.K_s,
     }
+
+
+class DefaultCharacterSettings:
+    speed = PhysicsSettings.max_speed * 0.5
+    mass = 10
+    max_HP = 10
+    damage = 1
+    invulnerability = 500
+
+    movement = list(ButtonSettings.move_buttons.keys())
+    effects = [Action.INVULNERABILITY]
 
 
 class Settings(
