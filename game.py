@@ -53,10 +53,11 @@ class GameScreen(Screen):
         self.player.process_event(event)
 
     def process_entities(self):
-        # self.player.process_entities(self.get_entities(self.LN.MAP))
         for entity in self.get_entities(self.LN.MAP):
             entity.process(self.get_entities(self.LN.MAP))
             print_in_log_file(f"{entity.name}, {entity.v}")
+            if not entity.is_exist:
+                self.layers[self.LN.MAP].remove(entity)
 
     def set_camera_zoom(self, zoom: float):
         for layer_name in [self.LN.MAP, self.LN.BG]:

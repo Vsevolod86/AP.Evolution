@@ -73,6 +73,9 @@ class Model:
     def delete(self, index: int):
         del self._elements[index]
 
+    def remove(self, element):
+        self._elements.remove(element)
+
     def modify(self, index: int, new_element):
         self._elements[index] = new_element
 
@@ -116,6 +119,10 @@ class Entity(pg.sprite.Sprite, IRenderable, IPositionable):
     @property
     def bottom(self):
         return self.get_position().y + self.size.y
+
+    @property
+    def is_exist(self):
+        return True
 
     def set_position(self, new_position: Vector) -> None:
         self.__position = self._indent + new_position
@@ -414,6 +421,10 @@ class Character(PhysicsEntity):
         # key - название действия, value - время выполнения
         for action in Action:
             self.action_duration[action] = 0
+
+    @property
+    def is_exist(self):
+        return self.HP > 0
 
     def get_collision_objs_pipeline(self):
         return super().get_collision_objs_pipeline() + [
