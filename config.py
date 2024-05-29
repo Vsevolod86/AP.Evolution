@@ -18,7 +18,7 @@ class ScreenSettings:
     bg_color = Colors.turquoise
 
     camera_speed = 1  # the speed of the camera keeping up with the player
-    camera_zoom = 2
+    camera_zoom = 1
 
 
 class GameSettings:
@@ -28,7 +28,7 @@ class GameSettings:
     log_file_name = "log.txt"
     default_color = Colors.red
     bar_scale = 1.25
-    bar_aspect_ratio = 5
+    bar_aspect_ratio = 8
 
     @staticmethod
     def dt():
@@ -52,7 +52,8 @@ class Action(Enum):
 class DefaultCharacterSettings:
     speed = PhysicsSettings.max_speed * 0.5
     mass = 10
-    weight = 10
+    max_HP = 50
+    damage = 1
 
 
 class ButtonSettings:
