@@ -1,12 +1,11 @@
 from abc import abstractmethod, ABC
 from typing import Callable, Iterable, Union, List, Type, Tuple
-
-# from future import annotations
 from os.path import exists
 import pygame as pg
 from geometry.vector import Vector
 from config import Settings, Action
 from config import Colors, print_in_log_file
+from character_type import CharacterType, Core, Body, Shell, Legs
 
 
 # INTERFACES AND PRIMITIVES
@@ -61,11 +60,12 @@ class Model:
     def add(self, element):
         if isinstance(element, Iterable):
             for e in element:
+                assert isinstance(e, self._elements_type) and "недобавляемый элемент"
                 self._elements.append(e)
         elif isinstance(element, self._elements_type):
             self._elements.append(element)
         else:
-            assert False
+            assert False and "недобавляемый элемент"
 
     def get_elements(self):
         return self._elements
@@ -170,7 +170,11 @@ class SubElement(IRenderable):
         z_index=1,
     ) -> None:
         """indent - отступ"""
-        assert main_entity != sub_entity and isinstance(sub_entity, Entity)
+        assert (
+            main_entity != sub_entity
+            and isinstance(sub_entity, Entity)
+            and "элемент не может быть подэлементом самого себя"
+        )
         self.main_entity = main_entity
         self.sub_entity = sub_entity
         self.z_index = z_index
@@ -280,7 +284,7 @@ class RasterEntity(Entity):
         )
 
     def __set_image(self, path2image: str):
-        assert exists(path2image)
+        assert exists(path2image) and "несуществующий спрайт"
         self.image = pg.image.load(path2image)
 
     def update(
@@ -320,7 +324,7 @@ class PhysicsEntity(RasterEntity, IPhysicable):
     def _set_physics_parameters(self, is_movable: bool, mass: float) -> None:
         self.is_movable = is_movable
         self.mass = mass
-        assert mass >= 0
+        assert mass >= 0 and "масса не может быть отрицательной"
         self.velocity = Vector(0, 0)
 
     def get_collision_objs_pipeline(self) -> list[Callable[..., None]]:
@@ -616,23 +620,21 @@ class Camera(Entity):
         )
         self.zoom = zoom
         self.world_position = Vector(0.0, 0.0)
-        self.speed = 0.0
+        self.ratio_speed = 0.0
         self.tracked_entity: Entity = None
 
-    def set_tracked_entity(self, entity: Entity, speed=0.0):
-        assert 0 <= speed <= 1
-        self.speed = speed
+    def set_tracked_entity(self, entity: Entity, ratio_speed=0.0):
+        assert 0 <= ratio_speed <= 1 and "ratio_speed вышло за пределы возможной скорости"
+        self.ratio_speed = ratio_speed
         self.tracked_entity = entity
 
     def set_zoom(self, new_zoom: float):
         self.zoom = new_zoom
 
-    def render(
-        self, screen_surface: pg.Surface, entities: List[Type[IRenderable]]
-    ) -> None:
+    def render(self, screen_surface: pg.Surface, entities: List[Type[Entity]]) -> None:
         position_on_camera = lambda position: position
         if self.tracked_entity is not None:
-            s = self.speed
+            s = self.ratio_speed
             entity = self.tracked_entity
 
             target_position = entity.get_position() + entity.size / 2

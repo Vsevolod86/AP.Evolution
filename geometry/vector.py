@@ -39,7 +39,7 @@ class Vector:
         return self
 
     def __truediv__(self, scalar: float) -> "Vector":  # /
-        assert scalar != 0
+        assert scalar != 0 and "деление на ноль"
         return Vector(self.x / scalar, self.y / scalar)
 
     def __rtruediv__(self, scalar: float) -> "Vector":  # /

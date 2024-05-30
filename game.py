@@ -22,13 +22,13 @@ class GameScreen(Screen):
         # MAP
         self.add_layer(self.LN.MAP, 2)
 
-        self.player = Player("images/GB_body.png", "player")
+        self.player = Player("images/GB_body1.png", "player")
         self.add_entities_on_layer(self.LN.MAP, self.player)
         self.set_tracked_entity(self.LN.MAP, self.player, Settings.camera_speed)
 
         enemy1 = Character("images/bacteria_orange.png", name="enemy1")
         enemy1.set_position(Vector(90, 20))
-        enemy2 = Character("images/bacteria_red.png", name="enemy2")
+        enemy2 = Character("images/RB_body1.png", name="enemy2")
         enemy2.set_position(Vector(80, 20))
         enemy2.mass = 0.1
         self.add_entities_on_layer(self.LN.MAP, [enemy1, enemy2])
@@ -55,7 +55,6 @@ class GameScreen(Screen):
     def process_entities(self):
         for entity in self.get_entities(self.LN.MAP):
             entity.process(self.get_entities(self.LN.MAP))
-            print_in_log_file(f"{entity.name}, {entity.v}")
             if not entity.is_exist:
                 self.layers[self.LN.MAP].remove(entity)
 
@@ -96,13 +95,10 @@ class Game:
             print_in_log_file(f"{cadr = :_^40}")
             cadr += 1
             Settings.FPS_clock.tick(Settings.FPS)
-            # print_in_log_file("Event")
             self.event_tracking(current_screen)
 
-            # print_in_log_file("Update")
             current_screen.process_entities()
 
-            # print_in_log_file("Render")
             self.surface.fill(Colors.pink)
             current_screen.render()
 

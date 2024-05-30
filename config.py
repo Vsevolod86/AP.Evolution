@@ -26,6 +26,7 @@ class GameSettings:
     FPS = 40
     developer_mode = True  # and False
     log_file_name = "log.txt"
+    path_to_character_parts = r"./images/"
     default_color = Colors.red
     bar_scale = 1.25
     bar_aspect_ratio = 8
