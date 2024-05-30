@@ -40,11 +40,11 @@ class GameScreen(Screen):
         # INTERFACE
         self.add_layer(self.LN.INTERFACE, 3)
 
-        barHP = Bar(
-            Vector(50, 10), Vector(30, 30), color=Colors.green, bg_color=Colors.silver
+        self.HPbar = Bar(
+            Vector(100, 10), Vector(30, 30), color=Colors.green, bg_color=Colors.silver
         )
-        barHP.update_load(0.8)
-        self.add_entities_on_layer(self.LN.INTERFACE, barHP)
+        self.HPbar.update_load(0.8)
+        self.add_entities_on_layer(self.LN.INTERFACE, self.HPbar)
 
         self.set_camera_zoom(Settings.camera_zoom)
 
@@ -57,6 +57,7 @@ class GameScreen(Screen):
             entity.process(self.get_entities(self.LN.MAP))
             if not entity.is_exist:
                 self.layers[self.LN.MAP].remove(entity)
+        self.HPbar.update_load(self.player.HPbar.load)  # TODO: закастылил
 
     def set_camera_zoom(self, zoom: float):
         for layer_name in [self.LN.MAP, self.LN.BG]:

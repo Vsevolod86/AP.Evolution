@@ -49,7 +49,7 @@ class PhysicsStats:
 
 
 @dataclass()
-class Stats(PhysicsStats):
+class CharacterStats(PhysicsStats):
     HP: float = 0
     max_HP: float = 0
     HP_regen_per_tick: float = 0
@@ -60,12 +60,12 @@ class Stats(PhysicsStats):
     def __post_init__(self):
         self.HP = self.max_HP
 
-    def __add__(self, other: "Stats"):  # +
+    def __add__(self, other: "CharacterStats"):  # +
         stats = {}
         general_stats = set(vars(self).keys()) & set(vars(other).keys())
         for stat in general_stats:
             stats[stat] = getattr(self, stat) + getattr(other, stat)
-        return Stats(**stats)
+        return CharacterStats(**stats)
 
 
 @dataclass()
@@ -73,7 +73,7 @@ class BodyPart:
     body_type: ChParts
     path_to_sprite: str
     indent: Vector
-    stats: Stats
+    stats: CharacterStats
     z_index: int = field(init=False)
 
     def __post_init__(self):
@@ -113,7 +113,7 @@ class CharacterType:
         self, body_type: ChParts, name: str, indent=Vector(0, 0), **stats
     ):
         self.parts[body_type].append(
-            BodyPart(body_type, self._path + name, indent, Stats(**stats))
+            BodyPart(body_type, self._path + name, indent, CharacterStats(**stats))
         )
 
     def get_pasrts(self) -> dict[ChParts, list[BodyPart]]:
@@ -196,7 +196,7 @@ if __name__ == "__main__":
     # player = CharacterTypeController(RedBacteria())
     # print(player.get_parts())
 
-    s1 = Stats(3, 1, 1, 1, 4, 1, 1, 0, 3, 1)
+    s1 = CharacterStats(3, 1, 1, 1, 4, 1, 1, 0, 3, 1)
     print(s1)
     s1 += s1
     print(s1)

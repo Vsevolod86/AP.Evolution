@@ -9,7 +9,7 @@ from character_type import (
     CharacterTypeController,
     CharacterType,
     ChParts,
-    Stats,
+    CharacterStats,
 )
 
 
@@ -255,7 +255,7 @@ class Bar(Entity):
         bg_color: Tuple[int] = Colors.silver,
     ) -> None:
         super().__init__(size, position, name, bg_color)
-        self.__percent = 1
+        self.__percent = 1.0
         # Шкала
         self.indent = 0.1 * Vector(self.size.min(), self.size.min())
         self.movable_bar = Entity(
@@ -263,6 +263,10 @@ class Bar(Entity):
         )
         self.movable_bar.set_indent(self.indent)
         self.sub_elements.add(SubElement(self, self.movable_bar, 2))
+
+    @property
+    def load(self):
+        return self.__percent
 
     def update(
         self,
@@ -446,7 +450,7 @@ class Character(PhysicsEntity):
                 part_entity.set_indent(part.indent + self.center - part_entity.center)
 
     def __set_base_specifications(self):
-        self.stats = Stats()
+        self.stats = CharacterStats()
         for part in self.CTC.get_parts().values():
             self.stats += part.stats
 
