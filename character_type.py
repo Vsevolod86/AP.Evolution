@@ -90,7 +90,7 @@ class BodyPart:
 class CharacterType:
     def __init__(self) -> None:
         self.parts: dict[ChParts, list[BodyPart]] = defaultdict(list)
-        self.add_core("core1.png", HP_regen_per_tick=1)
+        self.add_core("core1.png", HP_regen_per_tick=0.001)
 
     @property
     def _path(self):

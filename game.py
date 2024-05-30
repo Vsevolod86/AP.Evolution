@@ -38,6 +38,7 @@ class GameScreen(Screen):
         self.add_entities_on_layer(self.LN.MAP, rect)
 
         # INTERFACE
+        # TODO: можно на камеру прямо навешивать, а не в отдельный слой выносить
         self.add_layer(self.LN.INTERFACE, 3)
 
         self.HPbar = Bar(
