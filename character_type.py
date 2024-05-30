@@ -1,51 +1,11 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from os.path import exists
 from collections import defaultdict
 from enum import Enum
-from config import Settings
-
+from copy import deepcopy
+from geometry.vector import Vector
 
 # Части тела
-
-
-@dataclass(frozen=True)
-class BodyPart:
-    """Содержит путь к спрайту части тела"""
-
-    path_to_sprite: str
-
-    def __post_init__(self):
-        assert exists(self.path_to_sprite) and "не существует выбранного спрайта"
-
-
-@dataclass(frozen=True)
-class Body(BodyPart):
-    """Содержит дополнительные статы персонажа"""
-
-    max_HP: int
-
-
-@dataclass(frozen=True)
-class Legs(BodyPart):
-    """Содержит дополнительные статы персонажа"""
-
-    speed: int
-
-
-@dataclass(frozen=True)
-class Shell(BodyPart):
-    """Содержит дополнительные статы персонажа"""
-
-    max_HP: int
-    damage: int
-
-
-@dataclass(frozen=True)
-class Core(BodyPart):
-    """Преумножает статы персонажа"""
-
-    scale_HP: float
-    scale_speed: float
 
 
 class ChParts(Enum):
@@ -57,57 +17,123 @@ class ChParts(Enum):
     BODY = "body"
 
 
+@dataclass()
+class PhysicsStats:
+    speed: float = 0
+    mass: float = 0
+    friction_coeff: float = 0
+    scale_speed: float = 0
+
+    def __add__(self, other: "PhysicsStats"):  # +
+        stats = {}
+        general_stats = set(vars(self).keys()) & set(vars(other).keys())
+        for stat in general_stats:
+            stats[stat] = getattr(self, stat) + getattr(other, stat)
+        return PhysicsStats(**stats)
+
+    def __iadd__(self, other: "PhysicsStats"):  # +=
+        general_stats = set(vars(self).keys()) & set(vars(other).keys())
+        for stat in general_stats:
+            new_val = getattr(self, stat) + getattr(other, stat)
+            setattr(self, stat, new_val)
+        return self
+
+    def get_stats_with_apply_scales(self):
+        new_stats = deepcopy(self)
+        for stat in vars(new_stats).keys():
+            if not stat.startswith("scale_"):
+                continue
+            new_val = (getattr(new_stats, stat) + 1) * getattr(new_stats, stat[6:])
+            setattr(new_stats, stat[6:], new_val)
+        return new_stats
+
+
+@dataclass()
+class Stats(PhysicsStats):
+    HP: float = 0
+    max_HP: float = 0
+    HP_regen_per_tick: float = 0
+    damage: float = 0
+    scale_HP_regen_per_tick: float = 0
+    scale_max_HP: float = 0
+
+    def __post_init__(self):
+        self.HP = self.max_HP
+
+    def __add__(self, other: "Stats"):  # +
+        stats = {}
+        general_stats = set(vars(self).keys()) & set(vars(other).keys())
+        for stat in general_stats:
+            stats[stat] = getattr(self, stat) + getattr(other, stat)
+        return Stats(**stats)
+
+
+@dataclass()
+class BodyPart:
+    body_type: ChParts
+    path_to_sprite: str
+    indent: Vector
+    stats: Stats
+    z_index: int = field(init=False)
+
+    def __post_init__(self):
+        assert exists(self.path_to_sprite) and "не существует выбранного спрайта"
+        if self.body_type == ChParts.BODY:
+            self.z_index = 1
+        else:
+            self.z_index = 2
+
+
 # Типы тел
 
 
 class CharacterType:
     def __init__(self) -> None:
         self.parts: dict[ChParts, list[BodyPart]] = defaultdict(list)
-        self._set_cores()
-        self._set_bodies()
-        self._set_legs()
-        self._set_shells()
+        self.add_core("core1.png", HP_regen_per_tick=1)
 
     @property
     def _path(self):
-        return Settings.path_to_character_parts
+        path_to_character_parts_sprites = r"./images/"
+        return path_to_character_parts_sprites
 
-    def _set_cores(self):
-        self.parts[ChParts.CORE].append(Core(self._path + "core1.png", 1, 1))
+    def add_core(self, name: str, indent=Vector(0, 0), **stats):
+        self._add_body_part(ChParts.CORE, name, indent, **stats)
 
-    def _set_bodies(self):
-        pass
+    def add_body(self, name: str, indent=Vector(0, 0), **stats):
+        self._add_body_part(ChParts.BODY, name, indent, **stats)
 
-    def _set_legs(self):
-        pass
+    def add_shell(self, name: str, indent=Vector(0, 0), **stats):
+        self._add_body_part(ChParts.SHELL, name, indent, **stats)
 
-    def _set_shells(self):
-        pass
+    def add_legs(self, name: str, indent=Vector(0, 0), **stats):
+        self._add_body_part(ChParts.LEGS, name, indent, **stats)
+
+    def _add_body_part(
+        self, body_type: ChParts, name: str, indent=Vector(0, 0), **stats
+    ):
+        self.parts[body_type].append(
+            BodyPart(body_type, self._path + name, indent, Stats(**stats))
+        )
 
     def get_pasrts(self) -> dict[ChParts, list[BodyPart]]:
         return self.parts
 
 
 class GreenBacteria(CharacterType):
-    def _set_bodies(self):
-        self.parts[ChParts.BODY].append(Body(self._path + "GB_body1.png", 100))
-
-    def _set_legs(self):
-        self.parts[ChParts.LEGS].append(Legs(self._path + "GB_legs1.png", 0.1))
-
-    def _set_shells(self):
-        self.parts[ChParts.SHELL].append(Shell(self._path + "GB_shell1.png", 50, 0))
+    def __init__(self) -> None:
+        super().__init__()
+        self.add_body("GB_body1.png", max_HP=100, mass=12, friction_coeff=0.02)
+        self.add_legs("GB_legs1.png", speed=0.1, mass=1)
+        self.add_shell("GB_shell1.png", max_HP=50, damage=5, mass=5)
 
 
 class RedBacteria(CharacterType):
-    def _set_bodies(self):
-        self.parts[ChParts.BODY].append(Body(self._path + "RB_body1.png", 50))
-
-    def _set_legs(self):
-        self.parts[ChParts.LEGS].append(Legs(self._path + "RB_legs1.png", 0.2))
-
-    def _set_shells(self):
-        self.parts[ChParts.SHELL].append(Shell(self._path + "RB_shell1.png", 10, 1))
+    def __init__(self) -> None:
+        super().__init__()
+        self.add_body("RB_body1.png", max_HP=70, mass=8, friction_coeff=0)
+        self.add_legs("RB_legs1.png", speed=0.12, mass=1)
+        self.add_shell("RB_shell1.png", max_HP=20, damage=12, mass=4)
 
 
 # Управление телом
@@ -123,14 +149,14 @@ class CharacterTypeController:
         self.set_new_character_type(character_type)
 
     def set_new_character_type(self, new_character_type: CharacterType):
-        assert new_character_type in self.CHARACTER_TYPES and "выбран несуществующий тип персонажа"
-        self.character_type = new_character_type()
-        self.__selected_parts = {
-            ChParts.BODY: 0,
-            ChParts.SHELL: 0,
-            ChParts.LEGS: 0,
-            ChParts.CORE: 0,
-        }
+        assert (
+            type(new_character_type) in self.CHARACTER_TYPES
+            and "выбран несуществующий тип персонажа"
+        )
+        self.character_type = new_character_type
+        self.__selected_parts: dict[ChParts, int] = {}
+        for part_type in ChParts:
+            self.__selected_parts[part_type] = 0
 
     def set_parts(
         self,
@@ -153,19 +179,26 @@ class CharacterTypeController:
     def __check_part(self, part_type, part_ind):
         assert part_type in self.__selected_parts and "неопознанная часть"
         assert (
-            0 <= part_ind < len(self.__selected_parts[part_type])
+            0 <= part_ind < len(self.get_all_parts()[part_type])
             and "выбрана несуществующая модификация"
         )
 
 
 if __name__ == "__main__":
-    green_b = RedBacteria()
-    print(green_b.parts[ChParts.CORE])
-    print(green_b.parts[ChParts.SHELL])
-    print(green_b.parts[ChParts.LEGS])
-    print(green_b.parts[ChParts.BODY])
+    # green_b = RedBacteria()
+    # print(green_b.parts[ChParts.CORE])
+    # print(green_b.parts[ChParts.SHELL])
+    # print(green_b.parts[ChParts.LEGS])
+    # print(green_b.parts[ChParts.BODY])
 
-    print()
+    # print()
 
-    player = CharacterTypeController(RedBacteria)
-    print(player.get_parts())
+    # player = CharacterTypeController(RedBacteria())
+    # print(player.get_parts())
+
+    s1 = Stats(3, 1, 1, 1, 4, 1, 1, 0, 3, 1)
+    print(s1)
+    s1 += s1
+    print(s1)
+    print(s1.get_stats_with_apply_scales())
+    print(s1)

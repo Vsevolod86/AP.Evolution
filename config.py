@@ -2,6 +2,8 @@
 from enum import Enum
 import pygame as pg
 
+from character_type import PhysicsStats
+
 
 class Colors:
     black = (0, 0, 0)
@@ -24,9 +26,8 @@ class ScreenSettings:
 class GameSettings:
     FPS_clock = pg.time.Clock()
     FPS = 40
-    developer_mode = True  # and False
+    developer_mode = False
     log_file_name = "log.txt"
-    path_to_character_parts = r"./images/"
     default_color = Colors.red
     bar_scale = 1.25
     bar_aspect_ratio = 8
@@ -39,10 +40,17 @@ class GameSettings:
 class PhysicsSettings:
     max_speed = 0.2
     separation_speed = max_speed * 0.1
-    friction_coefficient = 0.02
+    friction_coefficient = 0.01
     error = 0.001
     repulsion_force = 100
     energy_absorption = 0.1
+
+    default_entity_physics_stats = PhysicsStats(
+        speed=0,
+        mass=1,
+        friction_coeff=0,
+        scale_speed=0,
+    )
 
 
 class Action(Enum):
@@ -87,5 +95,5 @@ def print_in_log_file(msg: str):
     if not GameSettings.developer_mode:
         return
     with open(GameSettings.log_file_name, "a") as f:
-        f.write(msg + "\n")
+        # f.write(msg + "\n")
         print(msg)

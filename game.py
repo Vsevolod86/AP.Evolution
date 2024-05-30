@@ -5,6 +5,7 @@ from engine import Character, Bar, Player, Screen, Obstacle, Entity
 from config import Settings
 from config import Colors, print_in_log_file
 from geometry.vector import Vector
+from character_type import RedBacteria, GreenBacteria
 
 
 class GameScreen(Screen):
@@ -22,15 +23,14 @@ class GameScreen(Screen):
         # MAP
         self.add_layer(self.LN.MAP, 2)
 
-        self.player = Player("images/GB_body1.png", "player")
+        self.player = Player(GreenBacteria(), name="player")
         self.add_entities_on_layer(self.LN.MAP, self.player)
         self.set_tracked_entity(self.LN.MAP, self.player, Settings.camera_speed)
 
-        enemy1 = Character("images/bacteria_orange.png", name="enemy1")
+        enemy1 = Character(GreenBacteria(), name="enemy1")
         enemy1.set_position(Vector(90, 20))
-        enemy2 = Character("images/RB_body1.png", name="enemy2")
+        enemy2 = Character(RedBacteria(), name="enemy2")
         enemy2.set_position(Vector(80, 20))
-        enemy2.mass = 0.1
         self.add_entities_on_layer(self.LN.MAP, [enemy1, enemy2])
 
         rect = Obstacle("images/tmp.png", name="rect")

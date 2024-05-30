@@ -4,8 +4,13 @@ from os.path import exists
 import pygame as pg
 from geometry.vector import Vector
 from config import Settings, Action
-from config import Colors, print_in_log_file
-from character_type import CharacterType, Core, Body, Shell, Legs
+from config import Colors
+from character_type import (
+    CharacterTypeController,
+    CharacterType,
+    ChParts,
+    Stats,
+)
 
 
 # INTERFACES AND PRIMITIVES
@@ -194,6 +199,9 @@ class SubElement(IRenderable):
             zoom=zoom,
         )
 
+    def get_sub_entity(self):
+        return self.sub_entity
+
 
 class SubElementModel(Model, IRenderable):
     def __init__(self) -> None:
@@ -220,6 +228,19 @@ class SubElementModel(Model, IRenderable):
                 convert_position=convert_position,
                 zoom=zoom,
             )
+
+    def remove_by_name(self, name: str):
+        """Удаляет первый элемент с заданным именем"""
+        for el in self._elements:
+            if el.get_sub_entity().name == name:
+                self.remove(el)
+                break
+
+    def get_sub_entity_by_name(self, name: str):
+        for el in self._elements:
+            if el.get_sub_entity().name == name:
+                return el.get_sub_entity()
+        assert False and "поиск несуществующего объекта"
 
 
 class Bar(Entity):
@@ -316,16 +337,13 @@ class PhysicsEntity(RasterEntity, IPhysicable):
         is_movable: bool,
         position=Vector(0, 0),
         name="PhysicsEntity",
+        stats=Settings.default_entity_physics_stats,
         mass=1.0,
     ) -> None:
-        self._set_physics_parameters(is_movable, mass)
-        super().__init__(path2image=path2image, position=position, name=name)
-
-    def _set_physics_parameters(self, is_movable: bool, mass: float) -> None:
+        self.stats = stats
         self.is_movable = is_movable
-        self.mass = mass
-        assert mass >= 0 and "масса не может быть отрицательной"
         self.velocity = Vector(0, 0)
+        super().__init__(path2image=path2image, position=position, name=name)
 
     def get_collision_objs_pipeline(self) -> list[Callable[..., None]]:
         return [
@@ -338,11 +356,19 @@ class PhysicsEntity(RasterEntity, IPhysicable):
 
     @property
     def m(self) -> float:
-        return self.mass
+        return self.stats.mass
 
     @property
     def v(self) -> Vector:
         return self.velocity
+
+    @property
+    def speed(self):
+        return self.stats.speed
+
+    @property
+    def friction_coeff(self):
+        return self.stats.friction_coeff
 
     def move_position(self, delta_position: Vector) -> None:
         self.shift_position(delta_position * Settings.dt())
@@ -363,7 +389,7 @@ class PhysicsEntity(RasterEntity, IPhysicable):
     def process(self, entities: List[Type["PhysicsEntity"]]) -> None:
         if self.is_movable:
             self.apply_friction(Settings.friction_coefficient)
-            self.move(self.velocity)
+            self.move(self.v)
         # проверка коллизий
         for entity in Entity.collide_entities(self, entities):
             for callback in self.get_collision_objs_pipeline():
@@ -371,7 +397,8 @@ class PhysicsEntity(RasterEntity, IPhysicable):
 
     def apply_friction(self, friction_coefficient: float) -> None:
         """Применение силы трения к объекту"""
-        if abs(self.velocity) > 0:
+        if abs(self.v) > 0:
+            friction_coefficient = min(max(friction_coefficient, 0), 1)
             self.velocity *= 1 - friction_coefficient
 
 
@@ -390,27 +417,38 @@ class Obstacle(PhysicsEntity):
 class Character(PhysicsEntity):
     def __init__(
         self,
-        path2image: str,
+        character_type: CharacterType,
         position=Vector(0, 0),
         name="Character",
-        mass=1.0,
     ) -> None:
+        self.CTC = CharacterTypeController(character_type)
         super().__init__(
-            path2image=path2image,
+            path2image=self.CTC.get_parts()[ChParts.BODY].path_to_sprite,
             is_movable=True,
             position=position,
             name=name,
-            mass=mass,
         )
+        self.__set_body_parts()
         self.__set_base_specifications()
         self.__set_HP_bar()
         self.__set_action_duration()
 
+    def __set_body_parts(self):
+        self.__parts: dict[ChParts, SubElement] = {}
+        for part_type, part in self.CTC.get_parts().items():
+            part_entity = RasterEntity(part.path_to_sprite, name=part_type.value)
+            part_entity.set_indent(part.indent)
+            self.__parts[part_type] = SubElement(
+                self, part_entity, z_index=part.z_index
+            )
+            self.sub_elements.add(self.__parts[part_type])
+            if part_type == ChParts.CORE:
+                part_entity.set_indent(part.indent + self.center - part_entity.center)
+
     def __set_base_specifications(self):
-        self.max_HP = Settings.max_HP
-        self.HP = self.max_HP
-        self.damage = Settings.damage
-        self.speed = Settings.speed
+        self.stats = Stats()
+        for part in self.CTC.get_parts().values():
+            self.stats += part.stats
 
     def __set_HP_bar(self):
         self.HPbar = Bar.create_bar(self.size.x * Settings.bar_scale)
@@ -427,10 +465,22 @@ class Character(PhysicsEntity):
             self.action_duration[action] = 0
 
     @property
+    def damage(self):
+        return self.stats.damage
+
+    @property
+    def max_HP(self):
+        return self.stats.max_HP
+
+    @property
+    def HP(self):
+        return self.stats.HP
+
+    @property
     def is_exist(self):
         return self.HP > 0
 
-    def get_collision_objs_pipeline(self):
+    def get_collision_objs_pipeline(self) -> list[Callable[..., None]]:
         return super().get_collision_objs_pipeline() + [
             CollisionSystem.handle_attack,
         ]
@@ -451,8 +501,8 @@ class Character(PhysicsEntity):
         if self.action_duration[Action.DOWN]:
             self.velocity.y = self.speed
 
-        if abs(self.velocity) > self.speed:
-            self.velocity *= self.speed / abs(self.velocity)
+        if abs(self.v) > self.speed:
+            self.velocity *= self.speed / abs(self.v)
 
     def process_effects(self):
         for effect in Settings.effects:
@@ -462,8 +512,11 @@ class Character(PhysicsEntity):
     def get_damage(self, damager: Type["Character"]):
         if self.action_duration[Action.INVULNERABILITY] > 0:
             return
-        self.HP -= damager.damage
+        self.stats.HP -= damager.damage
         self.action_duration[Action.INVULNERABILITY] = Settings.invulnerability
+
+    def apply_friction(self, friction_coefficient: float) -> None:
+        super().apply_friction(friction_coefficient + self.friction_coeff)
 
     def update(
         self,
@@ -485,9 +538,9 @@ class Character(PhysicsEntity):
 
 
 class Player(Character, IEventProcessable):
-    def __init__(self, path2image: str, name="Player") -> None:
+    def __init__(self, character_type: CharacterType, name="Player") -> None:
         super().__init__(
-            path2image=path2image,
+            character_type=character_type,
             name=name,
         )
         self.__set_clamped_buttons()
@@ -558,14 +611,14 @@ class CollisionSystem:
         # Вычисляем вектор "вхождения" подвижного объекта в неподвижный
         delta = Vector(0, 0)
 
-        if movable_obj.velocity.x > 0:
+        if movable_obj.v.x > 0:
             delta.x = static_obj.left - movable_obj.right
-        elif movable_obj.velocity.x < 0:
+        elif movable_obj.v.x < 0:
             delta.x = static_obj.right - movable_obj.left
 
-        if movable_obj.velocity.y > 0:
+        if movable_obj.v.y > 0:
             delta.y = static_obj.top - movable_obj.bottom
-        elif movable_obj.velocity.y < 0:
+        elif movable_obj.v.y < 0:
             delta.y = static_obj.bottom - movable_obj.top
 
         # Корректируем позицию и скорость объекта
@@ -624,7 +677,9 @@ class Camera(Entity):
         self.tracked_entity: Entity = None
 
     def set_tracked_entity(self, entity: Entity, ratio_speed=0.0):
-        assert 0 <= ratio_speed <= 1 and "ratio_speed вышло за пределы возможной скорости"
+        assert (
+            0 <= ratio_speed <= 1 and "ratio_speed вышло за пределы возможной скорости"
+        )
         self.ratio_speed = ratio_speed
         self.tracked_entity = entity
 
