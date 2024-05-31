@@ -105,6 +105,9 @@ class CharacterType:
         self.add_core(
             "core2.png", HP_regen_per_tick=0.0015, scale_max_HP=0.2, scale_damage=0.2
         )
+        self.add_core(
+            "core3.png", HP_regen_per_tick=0.001, scale_speed=0.35
+        )
 
     @property
     def _path(self):
@@ -138,9 +141,11 @@ class GreenBacteria(CharacterType):
     def __init__(self) -> None:
         super().__init__()
         self.add_body("GB_body1.png", max_HP=100, mass=12, friction_coeff=0.02)
+        self.add_body("GB_body2.png", max_HP=200, mass=24, friction_coeff=0.03)
         self.add_legs("GB_legs1.png", speed=0.1, mass=1)
         self.add_shell("GB_shell1.png", max_HP=50, damage=5, mass=5)
         self.add_shell("GB_shell2.png", max_HP=100, damage=8, mass=10)
+        self.add_shell("GB_shell3.png", max_HP=50, damage=4, mass=3, speed = 0.05)
 
 
 class RedBacteria(CharacterType):
@@ -149,6 +154,8 @@ class RedBacteria(CharacterType):
         self.add_body("RB_body1.png", max_HP=70, mass=8, friction_coeff=0)
         self.add_legs("RB_legs1.png", speed=0.12, mass=1)
         self.add_shell("RB_shell1.png", max_HP=20, damage=12, mass=4)
+        self.add_shell("RB_shell2.png", max_HP=50, damage=10, mass=10)
+        self.add_shell("RB_shell3.png", max_HP=40, damage=20, mass=10)
 
 
 # Управление телом

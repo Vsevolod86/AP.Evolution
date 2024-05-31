@@ -25,8 +25,9 @@ class GameScreen(Screen):
         self.add_layer(self.LN.MAP, 2)
 
         self.player = Player(GreenBacteria(), name="player")
-        self.player.change_body_part(ChParts.SHELL, 1)
-        self.player.change_body_part(ChParts.CORE, 1)
+        self.player.change_body_part(ChParts.BODY, 1)
+        self.player.change_body_part(ChParts.SHELL, 2)
+        self.player.change_body_part(ChParts.CORE, 2)
         self.add_entities_on_layer(self.LN.MAP, self.player)
         self.set_tracked_entity(self.LN.MAP, self.player, Settings.camera_speed)
 
