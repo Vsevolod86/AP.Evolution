@@ -222,6 +222,7 @@ class SubElementModel(Model, IRenderable):
         convert_position: Callable[[Vector], Vector],
         zoom: float,
     ):
+        self.update_position()
         for entity in self._elements:
             entity.update(
                 screen_surface=screen_surface,
@@ -279,7 +280,6 @@ class Bar(Entity):
             convert_position=convert_position,
             zoom=zoom,
         )
-        self.sub_elements.update_position()
         self.sub_elements.update(screen_surface, convert_position, zoom)
 
     def update_load(self, percent: float):
@@ -492,8 +492,16 @@ class Character(PhysicsEntity):
     def process(self, entities: List[Type[PhysicsEntity]]):
         self.process_effects()
         self.process_motion_intent()
+        self.process_HP_regen()
         super().process(entities)
-        self.sub_elements.update_position()
+
+    def process_HP_regen(self):
+        self.stats.HP += self.stats.HP_regen_per_tick * Settings.dt()
+
+    def process_effects(self):
+        for effect in Settings.effects:
+            new_t = max(self.action_duration[effect] - Settings.dt(), 0)
+            self.action_duration[effect] = new_t
 
     def process_motion_intent(self):
         if self.action_duration[Action.RIGHT]:
@@ -507,11 +515,6 @@ class Character(PhysicsEntity):
 
         if abs(self.v) > self.speed:
             self.velocity *= self.speed / abs(self.v)
-
-    def process_effects(self):
-        for effect in Settings.effects:
-            new_t = max(self.action_duration[effect] - Settings.dt(), 0)
-            self.action_duration[effect] = new_t
 
     def get_damage(self, damager: Type["Character"]):
         if self.action_duration[Action.INVULNERABILITY] > 0:
