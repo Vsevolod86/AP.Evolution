@@ -95,18 +95,3 @@ class Menu(Screen):
             self.blit_screen()
 
             
-# if __name__ == "__main__":
-    # pg.init()
-    # surface = pg.display.set_mode((Settings.width, Settings.height))
-    # pg.display.set_caption(Settings.game_title)
-    
-    # main_menu = Menu(surface, ['Start','Exit'], "Main")
-    # pause_menu = Menu(surface, ['Items','Continue', 'Restart', 'Exit'], "Pause")
-    # market_menu = Menu(surface, ['Back','item 1', 'item 2', 'item 3', 'item 4'], "Market")
-    
-    
-
-    # pause_menu.display_menu()
-
-
-    # pg.quit()

@@ -486,6 +486,10 @@ class Character(PhysicsEntity):
         # key - название действия, value - время выполнения
         for action in Action:
             self.action_duration[action] = 0
+            
+    def clear_action_duration(self):
+        for action in Action:
+            self.action_duration[action] = 0
 
     def __recalc_stats(self):
         # TODO: немного поломанное обновление стат :(

@@ -29,7 +29,7 @@ class GameScreen(Screen):
         self.add_layer(self.LN.MAP, 2)
 
         self.player = Player(GreenBacteria(), name="player")
-        self.player.change_body_part(ChParts.SHELL, 1)
+        self.player.change_body_part(ChParts.SHELL, 0)
         self.player.change_body_part(ChParts.CORE, 1)
         self.add_entities_on_layer(self.LN.MAP, self.player)
         self.set_tracked_entity(self.LN.MAP, self.player, Settings.camera_speed)
@@ -64,12 +64,15 @@ class GameScreen(Screen):
         
     def event_tracking(self):
         """Отслеживание событий"""
+
+        
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 pg.quit()
             elif event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
                 self.game_ranning  = False
-                break
+                self.player.clear_action_duration()
+                return
             else:
                 self.process_event(event)
 
@@ -98,8 +101,6 @@ class GameScreen(Screen):
             self.surface.fill(Colors.pink)
             self.render()
 
-            # Обновление экрана (всегда в конце цикла)
-
             pg.display.flip()
 
 
@@ -112,7 +113,7 @@ class Game:
 
         self.status = None
         self.main_menu = Menu(self, self.surface, ['Start','Exit'], "Main")
-        self.pause_menu = Menu(self, self.surface, ['Items','Continue', 'Restart', 'Exit'], "Pause")
+        self.pause_menu = Menu(self, self.surface, ['Items','Continue', 'Main menu', 'Exit'], "Pause")
         self.market_menu = Menu(self, self.surface, ['Back','item 1', 'item 2', 'item 3', 'item 4'], "Market")
         # self.game_screen = GameScreen(self, self.surface)
     
@@ -121,13 +122,6 @@ class Game:
         self.is_game_run = True
         self.is_game_pause = False
 
-    # def event_tracking(self, screen: Screen):
-    #     """Отслеживание событий"""
-    #     for event in pg.event.get():
-    #         if event.type == pg.QUIT:
-    #             self.is_game_run = False  # "закрыть игру"
-    #         elif self.is_game_run:
-    #             screen.process_event(event)
 
     def run(self) -> None:
      
@@ -142,7 +136,7 @@ class Game:
             if self.status == "Continue":
                 self.game_screen.display_game()
                 self.current_menu = self.pause_menu
-            if self.status == "Restart":
+            if self.status == 'Main menu':
                 self.current_menu = self.main_menu
             if self.status == "Items":
                 self.current_menu = self.market_menu
@@ -150,61 +144,6 @@ class Game:
                 self.current_menu = self.pause_menu
             
         pg.quit()
-
-    def unpaused(self):
-        self.is_game_pause = False
-
-    def paused(self):
-        self.is_game_pause = True
-
-        while self.is_game_pause:
-            events = pg.event.get()
-            for event in events:
-                if event.type == pg.QUIT:
-                    exit()
-
-            if self.pause_menu.is_enabled():
-                self.pause_menu.draw(self.surface)
-            self.pause_menu.update(events)
-            pg.display.flip()
-        return
-
-    def main_menu_run(self) -> None:
-        self.main_menu.mainloop(self.surface)
-        return
-
-    def launch(self) -> None:
-
-        # Создание основного меню(main_menu)
-        theme = pg_menu.themes.THEME_DARK.copy()
-        theme.title_bar_style = pg_menu.widgets.MENUBAR_STYLE_ADAPTIVE
-        theme.widget_selection_effect = pg_menu.widgets.NoneSelection()
-        self.main_menu = pg_menu.Menu(
-            # enabled=True,
-            theme=theme,
-            height=Settings.height * 0.8,
-            width=Settings.width * 0.8,
-            onclose=pg_menu.events.EXIT,
-            title="Main menu",
-        )
-
-        self.main_menu.add_button("Start", self.run)
-
-        self.pause_menu = pg_menu.Menu(
-            # enabled=True,
-            theme=theme,
-            height=Settings.height * 0.8,
-            width=Settings.width * 0.8,
-            onclose=pg_menu.events.EXIT,
-            title="Pause",
-        )
-
-        self.pause_menu.add_button("Continue", self.unpaused)
-        self.pause_menu.add_button("Restart", self.run)
-        self.pause_menu.add_button("Back", self.main_menu_run)
-        #
-
-        self.main_menu_run()
 
 
 if __name__ == "__main__":
