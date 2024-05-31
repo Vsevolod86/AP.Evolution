@@ -349,7 +349,7 @@ class PhysicsEntity(RasterEntity, IPhysicable):
         self.velocity = Vector(0, 0)
         super().__init__(path2image=path2image, position=position, name=name)
 
-    def get_collision_objs_pipeline(self) -> list[Callable[..., None]]:
+    def get_collision_objs_pipeline(self) -> List[Callable[..., None]]:
         return [
             CollisionSystem.handle_collision,
         ]
@@ -484,7 +484,7 @@ class Character(PhysicsEntity):
     def is_exist(self):
         return self.HP > 0
 
-    def get_collision_objs_pipeline(self) -> list[Callable[..., None]]:
+    def get_collision_objs_pipeline(self) -> List[Callable[..., None]]:
         return super().get_collision_objs_pipeline() + [
             CollisionSystem.handle_attack,
         ]

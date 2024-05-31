@@ -4,6 +4,7 @@ from collections import defaultdict
 from enum import Enum
 from copy import deepcopy
 from geometry.vector import Vector
+from typing import Dict, List, Type
 
 # Части тела
 
@@ -116,7 +117,7 @@ class CharacterType:
             BodyPart(body_type, self._path + name, indent, CharacterStats(**stats))
         )
 
-    def get_pasrts(self) -> dict[ChParts, list[BodyPart]]:
+    def get_pasrts(self) -> Dict[Type[ChParts], List[Type[BodyPart]]]:
         return self.parts
 
 
@@ -160,17 +161,17 @@ class CharacterTypeController:
 
     def set_parts(
         self,
-        new_parts: dict[ChParts, int],
+        new_parts: Dict[Type[ChParts], int],
     ):
         """В new_parts содержатся изменяеме части тела (key) и индексы новых частей (value)"""
         for part_type, part_ind in new_parts.items():
             self.__check_part(part_type, part_ind)
             self.__selected_parts[part_type] = part_ind
 
-    def get_all_parts(self) -> dict[ChParts, list[BodyPart]]:
+    def get_all_parts(self) -> Dict[Type[ChParts], List[Type[BodyPart]]]:
         return self.character_type.get_pasrts()
 
-    def get_parts(self) -> dict[ChParts, BodyPart]:
+    def get_parts(self) -> Dict[Type[ChParts], Type[BodyPart]]:
         parts: dict[ChParts, BodyPart] = {}
         for part_type, part_ind in self.__selected_parts.items():
             parts[part_type] = self.get_all_parts()[part_type][part_ind]
