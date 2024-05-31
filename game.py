@@ -1,5 +1,6 @@
 from enum import Enum
 import pygame as pg
+import pygame_menu as pg_menu
 
 from engine import Character, Bar, Player, Screen, Obstacle, Entity
 from config import Settings
@@ -56,7 +57,7 @@ class GameScreen(Screen):
         # self.player.process_entities(self.get_entities(self.LN.MAP))
         for entity in self.get_entities(self.LN.MAP):
             entity.process(self.get_entities(self.LN.MAP))
-            print_in_log_file(f"{entity.name}, {entity.v}")
+            print_in_log_file(f"{entity.name}, {entity.get_position()}")
 
     def set_camera_zoom(self, zoom: float):
         for layer_name in [self.LN.MAP, self.LN.BG]:
@@ -71,6 +72,7 @@ class Game:
         pg.display.set_caption(Settings.game_title)
 
         self.is_game_run = True
+        self.is_game_pause = False
         self.game_screen = GameScreen(self.surface)
 
     def event_tracking(self, screen: Screen):
@@ -78,20 +80,25 @@ class Game:
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 self.is_game_run = False  # "закрыть игру"
+            elif event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
+                self.paused()
             elif self.is_game_run:
                 screen.process_event(event)
-
+    
     def run(self) -> None:
         """Запуск цикла игры, который
         1) считывает события
         2) обновляет объекты
         3) рендерит объекты
         """
-
+        
         current_screen: Screen = self.game_screen
         # Цикл игры
         cadr = 0
+        
         while self.is_game_run:
+            # отловка нажатия ESC
+            
             print_in_log_file(f"{cadr = :_^40}")
             cadr += 1
             Settings.FPS_clock.tick(Settings.FPS)
@@ -102,15 +109,68 @@ class Game:
             current_screen.process_entities()
 
             # print_in_log_file("Render")
-            self.surface.fill(Colors.pink)
+            self.surface.fill(Colors.pink) 
             current_screen.render()
 
             # Обновление экрана (всегда в конце цикла)
+  
             pg.display.flip()
 
         pg.quit()
 
+    def unpaused(self):
+        self.is_game_pause =False
+    
+    def paused(self):
+        self.is_game_pause = True
+        
+        while self.is_game_pause:
+            events = pg.event.get()
+            for event in events:
+                if event.type == pg.QUIT:
+                    exit()
+
+            if self.pause_menu.is_enabled():
+                self.pause_menu.draw(self.surface)
+            self.pause_menu.update(events)
+            pg.display.flip()
+        return
+    
+    def main_menu_run(self) -> None:
+        self.main_menu.mainloop(self.surface)
+        return
+        
+    def launch(self) -> None:
+
+        # Создание основного меню(main_menu)
+        theme = pg_menu.themes.THEME_DARK.copy()  
+        theme.title_bar_style = pg_menu.widgets.MENUBAR_STYLE_ADAPTIVE
+        theme.widget_selection_effect = pg_menu.widgets.NoneSelection()
+        self.main_menu = pg_menu.Menu(
+            # enabled=True,
+            theme=theme,
+            height=Settings.height*0.8,
+            width=Settings.width*0.8,
+            onclose=pg_menu.events.EXIT,
+            title='Main menu')
+        
+        self.main_menu.add_button('Start', self.run)
+        
+        self.pause_menu = pg_menu.Menu(
+            # enabled=True,
+            theme=theme,
+            height=Settings.height*0.8,
+            width=Settings.width*0.8,
+            onclose=pg_menu.events.EXIT,
+            title='Pause')
+        
+        self.pause_menu.add_button('Continue', self.unpaused)
+        self.pause_menu.add_button('Restart', self.run)
+        self.pause_menu.add_button('Back', self.main_menu_run)
+        #
+    
+        self.main_menu_run()
 
 if __name__ == "__main__":
     new_game = Game()
-    new_game.run()
+    new_game.launch()

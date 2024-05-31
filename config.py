@@ -27,6 +27,7 @@ class GameSettings:
     developer_mode = True  # and False
     log_file_name = "log.txt"
     default_color = Colors.red
+    default_button_color = Colors.silver
     bar_scale = 1.25
     bar_aspect_ratio = 5
 
