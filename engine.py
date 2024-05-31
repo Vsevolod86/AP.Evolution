@@ -486,6 +486,10 @@ class Character(PhysicsEntity):
         # key - название действия, value - время выполнения
         for action in Action:
             self.action_duration[action] = 0
+            
+    def clear_action_duration(self):
+        for action in Action:
+            self.action_duration[action] = 0
 
     def __recalc_stats(self):
         # TODO: немного поломанное обновление стат :(
@@ -796,6 +800,7 @@ class Screen(IEventProcessable):
         for l_name in self.sorted_layers:
             self.layers[l_name].render(self.surface)
 
+    
     @abstractmethod
     def process_event(self, event: pg.event.Event):
         pass
@@ -803,3 +808,5 @@ class Screen(IEventProcessable):
     @abstractmethod
     def process_entities(self):
         pass
+
+    
