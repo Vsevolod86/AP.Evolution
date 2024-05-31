@@ -6,8 +6,13 @@ from engine import Character, Bar, Player, Screen, Obstacle, Entity
 from config import Settings
 from config import Colors, print_in_log_file
 from geometry.vector import Vector
-from character_type import RedBacteria, GreenBacteria, ChParts
+from character_type import RedBacteria, GreenBacteria, ChParts, CharacterTypeController
 from menu import Menu
+
+start_body = { ChParts.CORE : 2,
+        ChParts.SHELL: 1,
+        ChParts.LEGS: 0,
+        ChParts.BODY: 1}
 
 
 class GameScreen(Screen):
@@ -20,6 +25,7 @@ class GameScreen(Screen):
         self.game = game
         
         
+        
         # BackGround
         self.add_layer(self.LN.BG, 1)
         bg = Entity(Vector(w, h), Vector(i, i), self.LN.BG, Settings.bg_color)
@@ -29,9 +35,13 @@ class GameScreen(Screen):
         self.add_layer(self.LN.MAP, 2)
 
         self.player = Player(GreenBacteria(), name="player")
-        self.player.change_body_part(ChParts.BODY, 1)
-        self.player.change_body_part(ChParts.SHELL, 2)
-        self.player.change_body_part(ChParts.CORE, 2)
+        CTC = CharacterTypeController(GreenBacteria())
+
+        self.list_limit = {ch.name.lower(): len(CTC.get_all_parts()[ch])  for ch in ChParts}
+        print(self.list_limit)
+        for name, i in start_body.items():
+            self.player.change_body_part(name, i)
+
         self.add_entities_on_layer(self.LN.MAP, self.player)
         self.set_tracked_entity(self.LN.MAP, self.player, Settings.camera_speed)
 
@@ -115,9 +125,8 @@ class Game:
         self.status = None
         self.main_menu = Menu(self, self.surface, ['Start','Exit'], "Main")
         self.pause_menu = Menu(self, self.surface, ['Items','Continue', 'Main menu', 'Exit'], "Pause")
-        self.market_menu = Menu(self, self.surface, ['Back','item 1', 'item 2', 'item 3', 'item 4'], "Market")
-        # self.game_screen = GameScreen(self, self.surface)
-    
+        self.market_menu = Menu(self, self.surface, ['Back'] + [ f"{name.value} {i}" for name, i in start_body.items()], "Market")
+        
         self.current_menu = self.main_menu
         
         self.is_game_run = True
@@ -127,6 +136,7 @@ class Game:
     def run(self) -> None:
      
         while self.is_game_run:
+            print(self.status)
             self.current_menu.display_menu()
             if self.status == "Exit":
                 break
@@ -143,6 +153,21 @@ class Game:
                 self.current_menu = self.market_menu
             if self.status == "Back":
                 self.current_menu = self.pause_menu
+            if self.status in [ f"{name.value} {i}" for name, i in start_body.items()]:
+                part = self.status[0:-2]
+                index = int(self.status[-1])
+                # print(part, index)
+                index = 0 if self.game_screen.list_limit[part] == index + 1 else index + 1
+                header_index = {'core': 1, 'shell' : 2, 'legs': 3, 'body': 4 }
+                self.market_menu.rename_header(header_index[part], f"{part} {index}")
+                change_part = None
+                for ctc in ChParts:
+                    if ctc.value == part:
+                        change_part = ctc
+                self.game_screen.player.change_body_part(change_part, index)
+                start_body[change_part] = index
+                # print(self.market_menu.list_header)
+                
             
         pg.quit()
 

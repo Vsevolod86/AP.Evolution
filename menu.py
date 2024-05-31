@@ -31,7 +31,9 @@ class Menu(Screen):
         self.list_header = list_header
         self.screen = screen_name
         self.num_header = len(self.list_header)
-  
+    
+    def rename_header(self, i, name):
+        self.list_header[i] = name
         
     def position_cursor_up(self):
         self.position_cursor = self.position_cursor - 1 if self.position_cursor != 0 else self.num_header - 1

@@ -460,7 +460,7 @@ class Character(PhysicsEntity):
         part_entity = RasterEntity(part.path_to_sprite, name=part_type.value)
         self.sub_elements.add(SubElement(self, part_entity, z_index=part.z_index))
         if part_type == ChParts.CORE:
-            part_entity.set_indent(part.indent + self.center - part_entity.center)
+            part_entity.set_indent(part.indent + (self.size - part_entity.size) / 2)
         else:
             part_entity.set_indent(part.indent)
         self.__recalc_stats()
