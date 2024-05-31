@@ -1,1 +1,2 @@
 pygame
+pygame-menu==3.3.0
