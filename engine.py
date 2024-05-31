@@ -796,6 +796,7 @@ class Screen(IEventProcessable):
         for l_name in self.sorted_layers:
             self.layers[l_name].render(self.surface)
 
+    
     @abstractmethod
     def process_event(self, event: pg.event.Event):
         pass
@@ -803,3 +804,5 @@ class Screen(IEventProcessable):
     @abstractmethod
     def process_entities(self):
         pass
+
+    

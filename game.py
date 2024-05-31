@@ -7,15 +7,19 @@ from config import Settings
 from config import Colors, print_in_log_file
 from geometry.vector import Vector
 from character_type import RedBacteria, GreenBacteria, ChParts
+from menu import Menu
 
 
 class GameScreen(Screen):
-    def __init__(self, surface: pg.Surface) -> None:
+    def __init__(self, game, surface: pg.Surface) -> None:
         w, h, i = surface.get_width(), surface.get_height(), 5
         display_area = pg.Rect(i, i, w - 2 * i, h - 2 * i)
         super().__init__(surface, display_area)
         self.LN = Enum("LN", ["BG", "MAP", "INTERFACE"])  # Layers Names
 
+        self.game = game
+        
+        
         # BackGround
         self.add_layer(self.LN.BG, 1)
         bg = Entity(Vector(w, h), Vector(i, i), self.LN.BG, Settings.bg_color)
@@ -52,9 +56,24 @@ class GameScreen(Screen):
 
         self.set_camera_zoom(Settings.camera_zoom)
 
+
     def process_event(self, event: pg.event.Event):
         """Отслеживание событий"""
         self.player.process_event(event)
+
+        
+    def event_tracking(self):
+        """Отслеживание событий"""
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                pg.quit()
+            elif event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
+                self.game_ranning  = False
+                break
+            else:
+                self.process_event(event)
+
+    
 
     def process_entities(self):
         for entity in self.get_entities(self.LN.MAP):
@@ -66,6 +85,22 @@ class GameScreen(Screen):
     def set_camera_zoom(self, zoom: float):
         for layer_name in [self.LN.MAP, self.LN.BG]:
             self.layers[layer_name].set_zoom(zoom)
+            
+    def display_game(self):
+        self.game_ranning = True
+        while self.game_ranning:
+
+            Settings.FPS_clock.tick(Settings.FPS)
+            self.event_tracking()
+
+            self.process_entities()
+
+            self.surface.fill(Colors.pink)
+            self.render()
+
+            # Обновление экрана (всегда в конце цикла)
+
+            pg.display.flip()
 
 
 class Game:
@@ -75,48 +110,45 @@ class Game:
         self.surface = pg.display.set_mode((Settings.width, Settings.height))
         pg.display.set_caption(Settings.game_title)
 
+        self.status = None
+        self.main_menu = Menu(self, self.surface, ['Start','Exit'], "Main")
+        self.pause_menu = Menu(self, self.surface, ['Items','Continue', 'Restart', 'Exit'], "Pause")
+        self.market_menu = Menu(self, self.surface, ['Back','item 1', 'item 2', 'item 3', 'item 4'], "Market")
+        # self.game_screen = GameScreen(self, self.surface)
+    
+        self.current_menu = self.main_menu
+        
         self.is_game_run = True
         self.is_game_pause = False
-        self.game_screen = GameScreen(self.surface)
 
-    def event_tracking(self, screen: Screen):
-        """Отслеживание событий"""
-        for event in pg.event.get():
-            if event.type == pg.QUIT:
-                self.is_game_run = False  # "закрыть игру"
-            elif event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
-                self.paused()
-            elif self.is_game_run:
-                screen.process_event(event)
+    # def event_tracking(self, screen: Screen):
+    #     """Отслеживание событий"""
+    #     for event in pg.event.get():
+    #         if event.type == pg.QUIT:
+    #             self.is_game_run = False  # "закрыть игру"
+    #         elif self.is_game_run:
+    #             screen.process_event(event)
 
     def run(self) -> None:
-        """Запуск цикла игры, который
-        1) считывает события
-        2) обновляет объекты
-        3) рендерит объекты
-        """
-
-        current_screen: Screen = self.game_screen
-        # Цикл игры
-        cadr = 0
-
+     
         while self.is_game_run:
-            # отловка нажатия ESC
-
-            print_in_log_file(f"{cadr = :_^40}")
-            cadr += 1
-            Settings.FPS_clock.tick(Settings.FPS)
-            self.event_tracking(current_screen)
-
-            current_screen.process_entities()
-
-            self.surface.fill(Colors.pink)
-            current_screen.render()
-
-            # Обновление экрана (всегда в конце цикла)
-
-            pg.display.flip()
-
+            self.current_menu.display_menu()
+            if self.status == "Exit":
+                break
+            if self.status == "Start":
+                self.game_screen = GameScreen(self, self.surface)
+                self.game_screen.display_game()
+                self.current_menu = self.pause_menu
+            if self.status == "Continue":
+                self.game_screen.display_game()
+                self.current_menu = self.pause_menu
+            if self.status == "Restart":
+                self.current_menu = self.main_menu
+            if self.status == "Items":
+                self.current_menu = self.market_menu
+            if self.status == "Back":
+                self.current_menu = self.pause_menu
+            
         pg.quit()
 
     def unpaused(self):
@@ -177,4 +209,4 @@ class Game:
 
 if __name__ == "__main__":
     new_game = Game()
-    new_game.launch()
+    new_game.run()

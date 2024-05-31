@@ -37,7 +37,6 @@ class GameSettings:
     def dt():
         return GameSettings.FPS_clock.get_time()
 
-
 class PhysicsSettings:
     max_speed = 0.2
     separation_speed = max_speed * 0.1
@@ -80,6 +79,28 @@ class DefaultCharacterSettings:
 
     movement = list(ButtonSettings.move_buttons.keys())
     effects = [Action.INVULNERABILITY]
+
+
+
+class MainMenu():
+    Start = "Start game"
+    LEFT = "Exit"
+    
+class PauseMenu():
+    Continue = "Continue game"
+    Item = "Market"
+    Restart = "Restart game"
+
+class MarketMenu():
+    Back = "Back"
+
+class MenuSetting(
+    MainMenu, 
+    PauseMenu, 
+    MarketMenu
+):
+    pass
+    
 
 
 class Settings(
