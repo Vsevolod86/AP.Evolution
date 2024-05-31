@@ -10,6 +10,7 @@ from character_type import (
     CharacterType,
     ChParts,
     CharacterStats,
+    BodyPart,
 )
 
 
@@ -230,6 +231,12 @@ class SubElementModel(Model, IRenderable):
                 zoom=zoom,
             )
 
+    def has_by_name(self, name: str):
+        for el in self._elements:
+            if el.get_sub_entity().name == name:
+                return True
+        return False
+
     def remove_by_name(self, name: str):
         """Удаляет первый элемент с заданным именем"""
         for el in self._elements:
@@ -237,7 +244,7 @@ class SubElementModel(Model, IRenderable):
                 self.remove(el)
                 break
 
-    def get_sub_entity_by_name(self, name: str):
+    def get_by_name(self, name: str):
         for el in self._elements:
             if el.get_sub_entity().name == name:
                 return el.get_sub_entity()
@@ -427,32 +434,44 @@ class Character(PhysicsEntity):
     ) -> None:
         self.CTC = CharacterTypeController(character_type)
         super().__init__(
-            path2image=self.CTC.get_parts()[ChParts.BODY].path_to_sprite,
+            path2image=self.CTC.get_selected_parts()[ChParts.BODY].path_to_sprite,
             is_movable=True,
             position=position,
             name=name,
         )
         self.__set_body_parts()
-        self.__set_base_specifications()
         self.__set_HP_bar()
         self.__set_action_duration()
 
     def __set_body_parts(self):
-        self.__parts: dict[ChParts, SubElement] = {}
-        for part_type, part in self.CTC.get_parts().items():
-            part_entity = RasterEntity(part.path_to_sprite, name=part_type.value)
-            part_entity.set_indent(part.indent)
-            self.__parts[part_type] = SubElement(
-                self, part_entity, z_index=part.z_index
-            )
-            self.sub_elements.add(self.__parts[part_type])
-            if part_type == ChParts.CORE:
-                part_entity.set_indent(part.indent + self.center - part_entity.center)
-
-    def __set_base_specifications(self):
+        self.__parts: dict[ChParts, BodyPart] = {}
         self.stats = CharacterStats()
-        for part in self.CTC.get_parts().values():
-            self.stats += part.stats
+        for part_type, part in self.CTC.get_selected_parts().items():
+            self.__set_body_part(part_type, part)
+
+    def __set_body_part(self, part_type: ChParts, part: BodyPart):
+        # удаляю предыдущую часть тела
+        if part_type in self.__parts:
+            self.stats -= self.__parts[part_type].stats
+            self.sub_elements.remove_by_name(part_type.value)
+        # добавляю новую часть тела
+        self.stats += part.stats
+        self.__parts[part_type] = part
+        part_entity = RasterEntity(part.path_to_sprite, name=part_type.value)
+        self.sub_elements.add(SubElement(self, part_entity, z_index=part.z_index))
+        if part_type == ChParts.CORE:
+            part_entity.set_indent(part.indent + self.center - part_entity.center)
+        else:
+            part_entity.set_indent(part.indent)
+        self.__recalc_stats()
+
+    def __set_body_part_by_index(self, part_type: ChParts, part_ind: int):
+        part = self.CTC.get_all_parts()[part_type][part_ind]
+        self.__set_body_part(part_type, part)
+
+    def change_body_part(self, part_type: ChParts, part_ind: int):
+        self.CTC.set_parts({part_type: part_ind})
+        self.__set_body_part_by_index(part_type, part_ind)
 
     def __set_HP_bar(self):
         self.HPbar = Bar.create_bar(self.size.x * Settings.bar_scale)
@@ -467,6 +486,13 @@ class Character(PhysicsEntity):
         # key - название действия, value - время выполнения
         for action in Action:
             self.action_duration[action] = 0
+
+    def __recalc_stats(self):
+        # TODO: немного поломанное обновление стат :(
+        self.stats = CharacterStats()
+        for part in self.__parts.values():
+            self.stats += part.stats
+        self.stats = self.stats.get_stats_with_apply_scales()
 
     @property
     def damage(self):

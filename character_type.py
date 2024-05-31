@@ -39,13 +39,22 @@ class PhysicsStats:
             setattr(self, stat, new_val)
         return self
 
+    def __isub__(self, other: "PhysicsStats"):  # -=
+        general_stats = set(vars(self).keys()) & set(vars(other).keys())
+        for stat in general_stats:
+            new_val = getattr(self, stat) - getattr(other, stat)
+            setattr(self, stat, new_val)
+        return self
+
     def get_stats_with_apply_scales(self):
         new_stats = deepcopy(self)
-        for stat in vars(new_stats).keys():
-            if not stat.startswith("scale_"):
+        for scale_stat in vars(new_stats).keys():
+            if not scale_stat.startswith("scale_"):
                 continue
-            new_val = (getattr(new_stats, stat) + 1) * getattr(new_stats, stat[6:])
-            setattr(new_stats, stat[6:], new_val)
+            stat = scale_stat[6:]
+            new_val = (1 + getattr(new_stats, scale_stat)) * getattr(new_stats, stat)
+            setattr(new_stats, stat, new_val)
+            setattr(new_stats, scale_stat, 0)
         return new_stats
 
 
@@ -57,6 +66,7 @@ class CharacterStats(PhysicsStats):
     damage: float = 0
     scale_HP_regen_per_tick: float = 0
     scale_max_HP: float = 0
+    scale_damage: float = 0
 
     def __post_init__(self):
         self.HP = self.max_HP
@@ -92,6 +102,9 @@ class CharacterType:
     def __init__(self) -> None:
         self.parts: dict[ChParts, list[BodyPart]] = defaultdict(list)
         self.add_core("core1.png", HP_regen_per_tick=0.001)
+        self.add_core(
+            "core2.png", HP_regen_per_tick=0.0015, scale_max_HP=0.2, scale_damage=0.2
+        )
 
     @property
     def _path(self):
@@ -127,6 +140,7 @@ class GreenBacteria(CharacterType):
         self.add_body("GB_body1.png", max_HP=100, mass=12, friction_coeff=0.02)
         self.add_legs("GB_legs1.png", speed=0.1, mass=1)
         self.add_shell("GB_shell1.png", max_HP=50, damage=5, mass=5)
+        self.add_shell("GB_shell2.png", max_HP=100, damage=8, mass=10)
 
 
 class RedBacteria(CharacterType):
@@ -171,7 +185,7 @@ class CharacterTypeController:
     def get_all_parts(self) -> Dict[Type[ChParts], List[Type[BodyPart]]]:
         return self.character_type.get_pasrts()
 
-    def get_parts(self) -> Dict[Type[ChParts], Type[BodyPart]]:
+    def get_selected_parts(self) -> Dict[Type[ChParts], Type[BodyPart]]:
         parts: dict[ChParts, BodyPart] = {}
         for part_type, part_ind in self.__selected_parts.items():
             parts[part_type] = self.get_all_parts()[part_type][part_ind]
@@ -195,7 +209,7 @@ if __name__ == "__main__":
     # print()
 
     # player = CharacterTypeController(RedBacteria())
-    # print(player.get_parts())
+    # print(player.get_selected_parts())
 
     s1 = CharacterStats(3, 1, 1, 1, 4, 1, 1, 0, 3, 1)
     print(s1)

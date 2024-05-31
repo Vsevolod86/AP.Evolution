@@ -6,7 +6,7 @@ from engine import Character, Bar, Player, Screen, Obstacle, Entity
 from config import Settings
 from config import Colors, print_in_log_file
 from geometry.vector import Vector
-from character_type import RedBacteria, GreenBacteria
+from character_type import RedBacteria, GreenBacteria, ChParts
 
 
 class GameScreen(Screen):
@@ -25,6 +25,8 @@ class GameScreen(Screen):
         self.add_layer(self.LN.MAP, 2)
 
         self.player = Player(GreenBacteria(), name="player")
+        self.player.change_body_part(ChParts.SHELL, 1)
+        self.player.change_body_part(ChParts.CORE, 1)
         self.add_entities_on_layer(self.LN.MAP, self.player)
         self.set_tracked_entity(self.LN.MAP, self.player, Settings.camera_speed)
 
@@ -86,21 +88,21 @@ class Game:
                 self.paused()
             elif self.is_game_run:
                 screen.process_event(event)
-    
+
     def run(self) -> None:
         """Запуск цикла игры, который
         1) считывает события
         2) обновляет объекты
         3) рендерит объекты
         """
-        
+
         current_screen: Screen = self.game_screen
         # Цикл игры
         cadr = 0
-        
+
         while self.is_game_run:
             # отловка нажатия ESC
-            
+
             print_in_log_file(f"{cadr = :_^40}")
             cadr += 1
             Settings.FPS_clock.tick(Settings.FPS)
@@ -108,21 +110,21 @@ class Game:
 
             current_screen.process_entities()
 
-            self.surface.fill(Colors.pink) 
+            self.surface.fill(Colors.pink)
             current_screen.render()
 
             # Обновление экрана (всегда в конце цикла)
-  
+
             pg.display.flip()
 
         pg.quit()
 
     def unpaused(self):
-        self.is_game_pause =False
-    
+        self.is_game_pause = False
+
     def paused(self):
         self.is_game_pause = True
-        
+
         while self.is_game_pause:
             events = pg.event.get()
             for event in events:
@@ -134,41 +136,44 @@ class Game:
             self.pause_menu.update(events)
             pg.display.flip()
         return
-    
+
     def main_menu_run(self) -> None:
         self.main_menu.mainloop(self.surface)
         return
-        
+
     def launch(self) -> None:
 
         # Создание основного меню(main_menu)
-        theme = pg_menu.themes.THEME_DARK.copy()  
+        theme = pg_menu.themes.THEME_DARK.copy()
         theme.title_bar_style = pg_menu.widgets.MENUBAR_STYLE_ADAPTIVE
         theme.widget_selection_effect = pg_menu.widgets.NoneSelection()
         self.main_menu = pg_menu.Menu(
             # enabled=True,
             theme=theme,
-            height=Settings.height*0.8,
-            width=Settings.width*0.8,
+            height=Settings.height * 0.8,
+            width=Settings.width * 0.8,
             onclose=pg_menu.events.EXIT,
-            title='Main menu')
-        
-        self.main_menu.add_button('Start', self.run)
-        
+            title="Main menu",
+        )
+
+        self.main_menu.add_button("Start", self.run)
+
         self.pause_menu = pg_menu.Menu(
             # enabled=True,
             theme=theme,
-            height=Settings.height*0.8,
-            width=Settings.width*0.8,
+            height=Settings.height * 0.8,
+            width=Settings.width * 0.8,
             onclose=pg_menu.events.EXIT,
-            title='Pause')
-        
-        self.pause_menu.add_button('Continue', self.unpaused)
-        self.pause_menu.add_button('Restart', self.run)
-        self.pause_menu.add_button('Back', self.main_menu_run)
+            title="Pause",
+        )
+
+        self.pause_menu.add_button("Continue", self.unpaused)
+        self.pause_menu.add_button("Restart", self.run)
+        self.pause_menu.add_button("Back", self.main_menu_run)
         #
-    
+
         self.main_menu_run()
+
 
 if __name__ == "__main__":
     new_game = Game()
