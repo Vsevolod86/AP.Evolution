@@ -1,15 +1,11 @@
 from enum import Enum
 import pygame as pg
-import pygame_menu as pg_menu
-
 from engine import Character, Bar, Player, Screen, Obstacle, Entity
 from config import Settings
 from config import Colors, print_in_log_file
 from geometry.vector import Vector
 from character_type import RedBacteria, GreenBacteria, ChParts, CharacterTypeController
 from menu import Menu
-
-
 
 
 class GameScreen(Screen):
@@ -20,9 +16,7 @@ class GameScreen(Screen):
         self.LN = Enum("LN", ["BG", "MAP", "INTERFACE"])  # Layers Names
 
         self.game = game
-        
-        
-        
+
         # BackGround
         self.add_layer(self.LN.BG, 1)
         bg = Entity(Vector(w, h), Vector(i, i), self.LN.BG, Settings.bg_color)
@@ -34,9 +28,10 @@ class GameScreen(Screen):
         self.player = Player(GreenBacteria(), name="player")
         CTC = CharacterTypeController(GreenBacteria())
 
-        self.list_limit = {ch.name.lower(): len(CTC.get_all_parts()[ch])  for ch in ChParts}
-    
-        
+        self.list_limit = {
+            ch.name.lower(): len(CTC.get_all_parts()[ch]) for ch in ChParts
+        }
+
         for name, i in Settings.body.items():
             self.player.change_body_part(name, i)
 
@@ -65,27 +60,22 @@ class GameScreen(Screen):
 
         self.set_camera_zoom(Settings.camera_zoom)
 
-
     def process_event(self, event: pg.event.Event):
         """Отслеживание событий"""
         self.player.process_event(event)
 
-        
     def event_tracking(self):
         """Отслеживание событий"""
 
-        
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 pg.quit()
             elif event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
-                self.game_ranning  = False
+                self.game_ranning = False
                 self.player.clear_action_duration()
                 return
             else:
                 self.process_event(event)
-
-    
 
     def process_entities(self):
         for entity in self.get_entities(self.LN.MAP):
@@ -97,7 +87,7 @@ class GameScreen(Screen):
     def set_camera_zoom(self, zoom: float):
         for layer_name in [self.LN.MAP, self.LN.BG]:
             self.layers[layer_name].set_zoom(zoom)
-            
+
     def display_game(self):
         self.game_ranning = True
         while self.game_ranning:
@@ -121,18 +111,24 @@ class Game:
         pg.display.set_caption(Settings.game_title)
 
         self.status = None
-        self.main_menu = Menu(self, self.surface, ['Start','Exit'], "Main")
-        self.pause_menu = Menu(self, self.surface, ['Items','Continue', 'Main menu', 'Exit'], "Pause")
-        self.market_menu = Menu(self, self.surface, ['Back'] + [ f"{name.value} {i}" for name, i in Settings.body.items()], "Market")
-        
+        self.main_menu = Menu(self, self.surface, ["Start", "Exit"], "Main")
+        self.pause_menu = Menu(
+            self, self.surface, ["Items", "Continue", "Main menu", "Exit"], "Pause"
+        )
+        self.market_menu = Menu(
+            self,
+            self.surface,
+            ["Back"] + [f"{name.value} {i}" for name, i in Settings.body.items()],
+            "Market",
+        )
+
         self.current_menu = self.main_menu
-        
+
         self.is_game_run = True
         self.is_game_pause = False
 
-
     def run(self) -> None:
-     
+
         while self.is_game_run:
 
             self.current_menu.display_menu()
@@ -145,17 +141,21 @@ class Game:
             if self.status == "Continue":
                 self.game_screen.display_game()
                 self.current_menu = self.pause_menu
-            if self.status == 'Main menu':
+            if self.status == "Main menu":
                 self.current_menu = self.main_menu
             if self.status == "Items":
                 self.current_menu = self.market_menu
             if self.status == "Back":
                 self.current_menu = self.pause_menu
-            if self.status in [ f"{name.value} {i}" for name, i in Settings.body.items()]:
+            if self.status in [
+                f"{name.value} {i}" for name, i in Settings.body.items()
+            ]:
                 part = self.status[0:-2]
                 index = int(self.status[-1])
-                index = 0 if self.game_screen.list_limit[part] == index + 1 else index + 1
-                header_index = {'core': 1, 'shell' : 2, 'legs': 3, 'body': 4 }
+                index = (
+                    0 if self.game_screen.list_limit[part] == index + 1 else index + 1
+                )
+                header_index = {"core": 1, "shell": 2, "legs": 3, "body": 4}
                 self.market_menu.rename_header(header_index[part], f"{part} {index}")
                 change_part = None
                 for ctc in ChParts:
@@ -163,9 +163,7 @@ class Game:
                         change_part = ctc
                 self.game_screen.player.change_body_part(change_part, index)
                 Settings.body[change_part] = index
-    
-                
-            
+
         pg.quit()
 
 
