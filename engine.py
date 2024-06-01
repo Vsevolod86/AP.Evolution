@@ -808,5 +808,8 @@ class Screen(IEventProcessable):
     @abstractmethod
     def process_entities(self):
         pass
-
+    
+    @abstractmethod
+    def display(self):
+        pass
     

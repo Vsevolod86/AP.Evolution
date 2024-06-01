@@ -16,14 +16,11 @@ start_body = { ChParts.CORE : 2,
 
 
 class GameScreen(Screen):
-    def __init__(self, game, surface: pg.Surface) -> None:
+    def __init__(self,  surface: pg.Surface, start_body ) -> None:
         w, h, i = surface.get_width(), surface.get_height(), 5
         display_area = pg.Rect(i, i, w - 2 * i, h - 2 * i)
         super().__init__(surface, display_area)
-        self.LN = Enum("LN", ["BG", "MAP", "INTERFACE"])  # Layers Names
-
-        self.game = game
-        
+        self.LN = Enum("LN", ["BG", "MAP", "INTERFACE"])  # Layers Names     
         
         
         # BackGround
@@ -38,8 +35,8 @@ class GameScreen(Screen):
         CTC = CharacterTypeController(GreenBacteria())
 
         self.list_limit = {ch.name.lower(): len(CTC.get_all_parts()[ch])  for ch in ChParts}
-        print(self.list_limit)
-        for name, i in start_body.items():
+        self.start_body = start_body  
+        for name, i in self.start_body.items():
             self.player.change_body_part(name, i)
 
         self.add_entities_on_layer(self.LN.MAP, self.player)
@@ -100,18 +97,14 @@ class GameScreen(Screen):
         for layer_name in [self.LN.MAP, self.LN.BG]:
             self.layers[layer_name].set_zoom(zoom)
             
-    def display_game(self):
+    def display(self):
         self.game_ranning = True
         while self.game_ranning:
-
             Settings.FPS_clock.tick(Settings.FPS)
             self.event_tracking()
-
             self.process_entities()
-
             self.surface.fill(Colors.pink)
             self.render()
-
             pg.display.flip()
 
 
@@ -123,9 +116,9 @@ class Game:
         pg.display.set_caption(Settings.game_title)
 
         self.status = None
-        self.main_menu = Menu(self, self.surface, ['Start','Exit'], "Main")
-        self.pause_menu = Menu(self, self.surface, ['Items','Continue', 'Main menu', 'Exit'], "Pause")
-        self.market_menu = Menu(self, self.surface, ['Back'] + [ f"{name.value} {i}" for name, i in start_body.items()], "Market")
+        self.main_menu = Menu(self, self.surface, ['Start','Exit'])
+        self.pause_menu = Menu(self, self.surface, ['Items','Continue', 'Main menu', 'Exit'])
+        self.market_menu = Menu(self, self.surface, ['Back'] + [ f"{name.value} {i}" for name, i in start_body.items()])
         
         self.current_menu = self.main_menu
         
@@ -136,7 +129,6 @@ class Game:
     def run(self) -> None:
      
         while self.is_game_run:
-            print(self.status)
             self.current_menu.display_menu()
             if self.status == "Exit":
                 break
@@ -173,5 +165,6 @@ class Game:
 
 
 if __name__ == "__main__":
+    print(Settings.move_buttons)
     new_game = Game()
     new_game.run()

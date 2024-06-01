@@ -1,6 +1,7 @@
 # конфигурации - поля классов
 from enum import Enum
 import pygame as pg
+from os.path import exists
 
 from character_type import PhysicsStats
 
@@ -12,6 +13,7 @@ class Colors:
     green = (0, 125, 0)
     turquoise = (0, 154, 200)
     pink = (255, 56, 103)
+    white = (255,255,255)
 
 
 class ScreenSettings:
@@ -82,25 +84,12 @@ class DefaultCharacterSettings:
 
 
 
-class MainMenu():
-    Start = "Start game"
-    LEFT = "Exit"
-    
-class PauseMenu():
-    Continue = "Continue game"
-    Item = "Market"
-    Restart = "Restart game"
 
-class MarketMenu():
-    Back = "Back"
 
-class MenuSetting(
-    MainMenu, 
-    PauseMenu, 
-    MarketMenu
-):
-    pass
-    
+class MenuSetting():
+    color_bg = Colors.black
+    color_text = Colors.white
+    font = '8-BIT WONDER.TTF' if exists('8-BIT WONDER.TTF') else pg.font.get_default_font()
 
 
 class Settings(
@@ -119,3 +108,6 @@ def print_in_log_file(msg: str):
     with open(GameSettings.log_file_name, "a") as f:
         # f.write(msg + "\n")
         print(msg)
+
+
+# if __name__ == "__main__":
