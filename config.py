@@ -2,7 +2,7 @@
 from enum import Enum
 import pygame as pg
 
-from character_type import PhysicsStats
+from character_type import PhysicsStats, ChParts
 
 
 class Colors:
@@ -69,6 +69,13 @@ class ButtonSettings:
         Action.DOWN: pg.K_s,
     }
 
+class StartCharacter:
+    body = { 
+        ChParts.CORE : 2,
+        ChParts.SHELL: 1,
+        ChParts.LEGS: 0,
+        ChParts.BODY: 1
+    }
 
 class DefaultCharacterSettings:
     speed = PhysicsSettings.max_speed * 0.5
@@ -101,7 +108,7 @@ class MenuSetting(
 ):
     pass
     
-
+        
 
 class Settings(
     DefaultCharacterSettings,
@@ -109,6 +116,7 @@ class Settings(
     ButtonSettings,
     GameSettings,
     ScreenSettings,
+    StartCharacter
 ):
     pass
 
