@@ -105,9 +105,7 @@ class CharacterType:
         self.add_core(
             "core2.png", HP_regen_per_tick=0.0015, scale_max_HP=0.2, scale_damage=0.2
         )
-        self.add_core(
-            "core3.png", HP_regen_per_tick=0.001, scale_speed=0.35
-        )
+        self.add_core("core3.png", HP_regen_per_tick=0.001, scale_speed=0.35)
 
     @property
     def _path(self):
@@ -145,7 +143,7 @@ class GreenBacteria(CharacterType):
         self.add_legs("GB_legs1.png", speed=0.1, mass=1)
         self.add_shell("GB_shell1.png", max_HP=50, damage=5, mass=5)
         self.add_shell("GB_shell2.png", max_HP=100, damage=8, mass=10)
-        self.add_shell("GB_shell3.png", max_HP=50, damage=4, mass=3, speed = 0.05)
+        self.add_shell("GB_shell3.png", max_HP=50, damage=4, mass=3, speed=0.05)
 
 
 class RedBacteria(CharacterType):
