@@ -463,7 +463,6 @@ class Character(PhysicsEntity):
             part_entity.set_indent(part.indent + (self.size - part_entity.size) / 2)
         else:
             part_entity.set_indent(part.indent)
-        self.__recalc_stats()
 
     def __set_body_part_by_index(self, part_type: ChParts, part_ind: int):
         part = self.CTC.get_all_parts()[part_type][part_ind]
@@ -490,13 +489,6 @@ class Character(PhysicsEntity):
     def clear_action_duration(self):
         for action in Action:
             self.action_duration[action] = 0
-
-    def __recalc_stats(self):
-        # TODO: немного поломанное обновление стат :(
-        self.stats = CharacterStats()
-        for part in self.__parts.values():
-            self.stats += part.stats
-        self.stats = self.stats.get_stats_with_apply_scales()
 
     @property
     def damage(self):

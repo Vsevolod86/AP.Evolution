@@ -21,62 +21,96 @@ class ChParts(Enum):
 @dataclass()
 class PhysicsStats:
     speed: float = 0
+    scale_speed: float = 1
     mass: float = 0
+    scale_mass: float = 1
     friction_coeff: float = 0
-    scale_speed: float = 0
+    scale_friction_coeff: float = 1
 
-    def __add__(self, other: "PhysicsStats"):  # +
-        stats = {}
-        general_stats = set(vars(self).keys()) & set(vars(other).keys())
-        for stat in general_stats:
-            stats[stat] = getattr(self, stat) + getattr(other, stat)
-        return PhysicsStats(**stats)
+    def __post_init__(self):
+        for stat in self.absolute_stats:
+            setattr(self, stat, self._get_scale_stat(stat))
+
+    @property
+    def all_stats(self):
+        return list(vars(self).keys())
+
+    @property
+    def absolute_stats(self):
+        return [stat for stat in vars(self).keys() if not stat.startswith("scale_")]
+
+    @property
+    def multiplying_stats(self):
+        return [
+            scale_stat
+            for scale_stat in vars(self).keys()
+            if scale_stat.startswith("scale_")
+        ]
+
+    def _get_scale_stat(self, stat: str):
+        scale_stat = "scale_" + stat
+        return getattr(self, stat) * getattr(self, scale_stat)
+
+    def _get_unscale_stat(self, stat: str):
+        scale_stat = "scale_" + stat
+        return getattr(self, stat) / getattr(self, scale_stat)
+
+    def _set_stat(self, stat: str, new_val: float):
+        setattr(self, stat, new_val)
 
     def __iadd__(self, other: "PhysicsStats"):  # +=
-        general_stats = set(vars(self).keys()) & set(vars(other).keys())
+        general_stats = set(self.absolute_stats) & set(other.absolute_stats)
         for stat in general_stats:
-            new_val = getattr(self, stat) + getattr(other, stat)
-            setattr(self, stat, new_val)
+            scale_stat = "scale_" + stat
+            # выделяю старые значения
+            s1, s2 = getattr(self, scale_stat), getattr(other, scale_stat)
+            c1 = self._get_unscale_stat(stat=stat)
+            c2 = other._get_unscale_stat(stat=stat)
+            # вычисляю новые значения
+            new_scale = s1 + s2 - 1
+            new_val = new_scale * (c1 + c2)
+            # обновляю данные
+            self._set_stat(scale_stat, new_scale)
+            self._set_stat(stat, new_val)
         return self
 
     def __isub__(self, other: "PhysicsStats"):  # -=
-        general_stats = set(vars(self).keys()) & set(vars(other).keys())
+        general_stats = set(self.absolute_stats) & set(other.absolute_stats)
         for stat in general_stats:
-            new_val = getattr(self, stat) - getattr(other, stat)
-            setattr(self, stat, new_val)
+            scale_stat = "scale_" + stat
+            # выделяю старые значения
+            s1, s2 = getattr(self, scale_stat), getattr(other, scale_stat)
+            c1 = self._get_unscale_stat(stat=stat)
+            c2 = other._get_unscale_stat(stat=stat)
+            # вычисляю новые значения
+            new_scale = s1 - (s2 - 1)
+            new_val = new_scale * (c1 - c2)
+            # обновляю данные
+            self._set_stat(scale_stat, new_scale)
+            self._set_stat(stat, new_val)
         return self
-
-    def get_stats_with_apply_scales(self):
-        new_stats = deepcopy(self)
-        for scale_stat in vars(new_stats).keys():
-            if not scale_stat.startswith("scale_"):
-                continue
-            stat = scale_stat[6:]
-            new_val = (1 + getattr(new_stats, scale_stat)) * getattr(new_stats, stat)
-            setattr(new_stats, stat, new_val)
-            setattr(new_stats, scale_stat, 0)
-        return new_stats
 
 
 @dataclass()
 class CharacterStats(PhysicsStats):
     HP: float = 0
+    scale_HP: float = 1
     max_HP: float = 0
+    scale_max_HP: float = 1
     HP_regen_per_tick: float = 0
+    scale_HP_regen_per_tick: float = 1
     damage: float = 0
-    scale_HP_regen_per_tick: float = 0
-    scale_max_HP: float = 0
-    scale_damage: float = 0
+    scale_damage: float = 1
 
     def __post_init__(self):
+        super().__post_init__()
         self.HP = self.max_HP
 
-    def __add__(self, other: "CharacterStats"):  # +
-        stats = {}
-        general_stats = set(vars(self).keys()) & set(vars(other).keys())
-        for stat in general_stats:
-            stats[stat] = getattr(self, stat) + getattr(other, stat)
-        return CharacterStats(**stats)
+    def __isub__(self, other: "PhysicsStats"):  # -=
+        prev_HP = self.HP
+        super().__isub__(other)
+        self.HP = min(prev_HP, self.max_HP)
+        return self
 
 
 @dataclass()
@@ -103,9 +137,9 @@ class CharacterType:
         self.parts: dict[ChParts, list[BodyPart]] = defaultdict(list)
         self.add_core("core1.png", HP_regen_per_tick=0.001)
         self.add_core(
-            "core2.png", HP_regen_per_tick=0.0015, scale_max_HP=0.2, scale_damage=0.2
+            "core2.png", HP_regen_per_tick=0.0015, scale_max_HP=1.2, scale_damage=1.2
         )
-        self.add_core("core3.png", HP_regen_per_tick=0.001, scale_speed=0.35)
+        self.add_core("core3.png", HP_regen_per_tick=0.001, scale_speed=1.35)
 
     @property
     def _path(self):
@@ -216,9 +250,7 @@ if __name__ == "__main__":
     # player = CharacterTypeController(RedBacteria())
     # print(player.get_selected_parts())
 
-    s1 = CharacterStats(3, 1, 1, 1, 4, 1, 1, 0, 3, 1)
-    print(s1)
-    s1 += s1
-    print(s1)
-    print(s1.get_stats_with_apply_scales())
-    print(s1)
+    test_stats = CharacterStats(1, 3, 1, 3, 4, 1.5, 1, 1, 3, 1)
+    print(test_stats)
+    test_stats += test_stats
+    print(test_stats)
