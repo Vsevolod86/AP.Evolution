@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from engine import Character, Bar, Player, Screen, Obstacle, Entity
 from geometry.vector import Vector
 from config import MenuSetting, Settings, Action
-from typing import List, Dict
+from typing import List, Dict, Type, Any
 
 
 
@@ -153,51 +153,74 @@ class DynamicMenu(Menu):
             
 
 
-
-# dict = {'vertices': ['Main','Pause', 'Market', 'Quit'],
-#         'transitions' : {'Main': {'Start': 'Pause', 'Exit': 'Quit'},
-#                    'Pause': {'Items': 'Market','Continue': 'Pause', 'Main menu': 'Main', 'Exit': 'Quit'},
-#                    'Market': {'Back': 'Pause', 'Core': 'Market', 'Shell' : 'Market', 'Legs': 'Market', 'Body': 'Market' }
-#                    },
-#         'current_vertices': 'Main',
-#         'finish_vertices': 'Qiut'
-#         }
-
-vertices = ['Main','Pause', 'Market', 'Quit']
-transitions = {'Main': {'Start': 'Pause', 'Exit': 'Quit'},
-                'Pause': {'Items': 'Market','Continue': 'Pause', 'Main menu': 'Main', 'Exit': 'Quit'},
-                'Market': {'Back': 'Pause', 'Core': 'Market', 'Shell' : 'Market', 'Legs': 'Market', 'Body': 'Market' }
-                   }
-current_vertices = 'Main'
-finish_vertices = 'Quit'
+@dataclass
+class Vertex:
+    """Вершины, использумые в графах"""
+    Name: Any 
 
 
+dict = {'vertices': [Vertex('Main'),Vertex('Pause'), Vertex('Market'), Vertex('Quit'), Vertex('Game')],
+        'transitions' : {Vertex('Main').Name: {'Start': Vertex('Game'), 
+                                          'Exit': Vertex('Quit')},
+                   Vertex('Pause').Name: {'Items': Vertex('Market'),
+                                     'Continue': Vertex('Game'), 
+                                     'Main menu': Vertex('Main'), 
+                                     'Exit': Vertex('Quit')},
+                   Vertex('Market').Name: {'Back': Vertex('Pause'), 
+                                      'Core': Vertex('Market'), 
+                                      'Shell' : Vertex('Market'), 
+                                      'Legs': Vertex('Market'), 
+                                      'Body': Vertex('Market') },
+                   Vertex('Game').Name: {'Escape': Vertex('Pause')}
+                   },
+        'current_vertice': Vertex('Main'),
+        'finish_vertices': [Vertex('Quit')]
+        }
 
+# vertices = ['Main',Vertex('Pause'), Vertex('Market'), Vertex('Quit')]
+# transitions = {'Main': {'Start': Vertex('Pause'), 'Exit': Vertex('Quit')},
+#                 Vertex('Pause'): {'Items': Vertex('Market'),'Continue': Vertex('Pause'), 'Main menu': 'Main', 'Exit': Vertex('Quit')},
+#                 Vertex('Market'): {'Back': Vertex('Pause'), 'Core': Vertex('Market'), 'Shell' : Vertex('Market'), 'Legs': Vertex('Market'), 'Body': Vertex('Market') }
+#                    }
+# current_vertices = 'Main'
+# finish_vertices = [Vertex('Quit')]
+
+
+@dataclass
 class FSM():
-    def __init__(self, vertices: List[str], 
-                 transitions: Dict[str, Dict[str, str]], 
-                 current_vertices: str, 
-                 finish_vertices: str):
-        
-        self.vertices = vertices
-        self.transitions = transitions
-        self.current_vertices = current_vertices
-        self.finish_vertices = finish_vertices
-        self.finish_work = self.check_finish()
+    """Конечный автомат"""
+    vertices: List[Type[Vertex]]
+    transitions: Dict[Vertex, Dict[str, Vertex]]
+    current_vertice: Type[Vertex]
+    finish_vertices: List[Type[Vertex]]
+    finish_work = False
     
-    def make_step(self, trans: str ) -> str:
+    
+    def make_step(self, trans: str ) -> Type[Vertex]:
+        """Сделать шаг поменяв состояние"""
         if self.finish_work:
-            return self.current_vertices
-        self.current_vertices = self.transitions[self.current_vertices][trans]
-        self.check_finish()
-        return self.current_vertices
+            return self.current_vertice
+        
+        dict_trans = self.transitions[self.current_vertice.Name]
+
+        assert trans in list(dict_trans.keys()), f"Задан не коректный переход {trans} в вершине {self.current_vertice.Name}. Список доступных переходов из данной вершины {list(dict_trans.keys())}"
+        
+        self.current_vertice = self.transitions[self.current_vertice.Name][trans]
+        self.__check_finish()
+        return self.current_vertice
     
-    def check_finish(self):
-        self.finish_work = self.current_vertices == self.finish_vertices
+    def __check_finish(self) -> None:
+        """Проверка нахождения в конечном состоянии"""
+        self.finish_work = self.current_vertice in self.finish_vertices
+        
         
 
 if __name__ == "__main__":
-    current_menu = FSM(vertices, transitions, current_vertices, finish_vertices)
-    print(current_menu.current_vertices)
-
-        
+    # current_menu = FSM(**dict)
+    # current_menu.make_step('Start')
+    # current_menu.make_step('Escape')
+    # print(current_menu.current_vertice)
+    
+    # v = Vertex('www')
+    # # v.Name = "ff"
+    # print(v.Name)
