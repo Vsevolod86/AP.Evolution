@@ -2,9 +2,15 @@
 from enum import Enum
 import pygame as pg
 from os.path import exists
+from typing import Any
+from dataclasses import dataclass
 
 from character_type import PhysicsStats
 
+@dataclass
+class Vertex:
+    """Вершины, использумые в графах"""
+    Name: Any 
 
 class Colors:
     black = (0, 0, 0)
@@ -90,8 +96,30 @@ class MenuSetting():
     color_bg = Colors.black
     color_text = Colors.white
     font = '8-BIT WONDER.TTF' if exists('8-BIT WONDER.TTF') else pg.font.get_default_font()
+    menu_stract = {'vertices': [Vertex('Main'),Vertex('Pause'), Vertex('Market'), Vertex('Quit'), Vertex('Game')],
+                'transitions' : {Vertex('Main').Name: {'Start': Vertex('Game'), 
+                                                        'Exit': Vertex('Quit')},
+                                 
+                                Vertex('Pause').Name: {'Items': Vertex('Market'),
+                                                    'Continue': Vertex('Game'), 
+                                                    'Main menu': Vertex('Main'), 
+                                                    'Exit': Vertex('Quit')},
+                                
+                                Vertex('Market').Name: {'Back': Vertex('Pause'), 
+                                                    'core': Vertex('Market'), 
+                                                    'shell' : Vertex('Market'), 
+                                                    'legs': Vertex('Market'), 
+                                                    'body': Vertex('Market') },
+                                
+                                Vertex('Game').Name: {'Escape': Vertex('Pause')}
+                                },
+                'current_vertice': Vertex('Main'),
+                'finish_vertices': [Vertex('Quit')]
+                }
 
-
+    menu = [Vertex('Main').Name,Vertex('Pause').Name, Vertex('Market').Name, Vertex('Quit').Name, Vertex('Game').Name]
+    
+    
 class Settings(
     DefaultCharacterSettings,
     PhysicsSettings,

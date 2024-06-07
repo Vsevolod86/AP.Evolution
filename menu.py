@@ -8,26 +8,35 @@ from geometry.vector import Vector
 from config import MenuSetting, Settings, Action
 from typing import List, Dict, Type, Any
 
+from character_type import ChParts
+
+pg.font.init()
+start_body = { ChParts.CORE : 2,
+        ChParts.SHELL: 1,
+        ChParts.LEGS: 0,
+        ChParts.BODY: 1}
+
 
 
 class Menu(Screen):
-    def __init__(self, game, surface: pg.Surface, header: Dict) -> None:
+    def __init__(self, surface: pg.Surface, header: Dict) -> None:
         # инит скрина
         w, h, i = surface.get_width(), surface.get_height(), 5
         display_area = pg.Rect(i, i, w - 2 * i, h - 2 * i)
         super().__init__(surface, display_area)
         
         self.surface = surface
-        self.game = game
+
         
-        self.display = True
         self.position_cursor = 0
-        
-        self.list_header = header
-        self.num_header = len(self.list_header)
-    
+        self.status = None
+        self.dict_header = header
+        self.num_header = len(self.dict_header)
+        self.position_list = list(self.dict_header.keys())
+
     def rename_header(self, i, name):
-        self.list_header[i] = name
+        self.dict_header
+        self.dict_header[i] = name
         
     def position_cursor_up(self):
         self.position_cursor = self.position_cursor - 1 if self.position_cursor != 0 else self.num_header - 1
@@ -36,7 +45,7 @@ class Menu(Screen):
         self.position_cursor = self.position_cursor + 1 if self.position_cursor != self.num_header - 1 else 0
         
     
-    @abstractmethod
+
     def process_event(self):
         """Отслеживание событий"""
         for event in pg.event.get():
@@ -49,7 +58,7 @@ class Menu(Screen):
                     self.position_cursor_down()
                 if event.key == pg.K_SPACE:
                     self.run_display = False
-                    self.g.status = self.list_header[self.position_cursor]
+                    self.status = self.position_list[self.position_cursor]
                             
 
 
@@ -58,7 +67,9 @@ class Menu(Screen):
         self.surface.fill(MenuSetting.color_bg)
         self.draw_cursor()
         height_step = int(self.surface.get_height()/(self.num_header+1))
-        for i,header in enumerate(self.list_header):
+
+        for i, header in enumerate(self.dict_header):
+            
             self.draw_text(header, 20, 250, (1+i)*height_step)
 
         return
@@ -79,10 +90,9 @@ class Menu(Screen):
         pg.display.update()
 
     
-    def display_menu(self):
+    def display(self):
         self.run_display = True
         while self.run_display:
-            
             Settings.FPS_clock.tick(Settings.FPS)
             
             self.process_event()
@@ -90,36 +100,19 @@ class Menu(Screen):
             self.process_entities()
    
             self.blit_screen()
-
-class StaticMenu(Menu):
-    
-    def __init__(self, game, surface: pg.Surface, header: Dict) -> None:
-        super().__init__(game, surface, header)
-    
-    def process_event(self):
-        """Отслеживание событий"""
-        for event in pg.event.get():
-            if event.type == pg.QUIT:
-                pg.quit() 
-            if event.type == pg.KEYDOWN:
-                if event.key == Settings.move_buttons[Action.UP]:
-                    self.position_cursor_up()
-                if event.key == Settings.move_buttons[Action.DOWN]:
-                    self.position_cursor_down()
-                if event.key == pg.K_SPACE:
-                    self.run_display = False
-                    self.g.status = self.list_header[self.position_cursor]
-        
-    
+  
     
 class DynamicMenu(Menu):
     
     def __init__(self, game, surface: pg.Surface, header: Dict, body_parts) -> None:
-        super().__init__(game, surface, header)
+        super().__init__( surface, header)
         self.body_parts = body_parts
+        self.game = game
+        self.status = None
         
     def process_event(self):
         """Отслеживание событий"""
+        chose_make = False
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 pg.quit() 
@@ -129,26 +122,52 @@ class DynamicMenu(Menu):
                 if event.key == Settings.move_buttons[Action.DOWN]:
                     self.position_cursor_down()
                 if event.key == pg.K_SPACE:
-                    self.run_display = False
-                    self.g.status = self.list_header[self.position_cursor]
+                    self.status = self.position_list[self.position_cursor]
+                    chose_make = True
                     break
-                    
-                    
-        part = self.status[0:-2]
-        index = int(self.status[-1])
-        index = 0 if self.game.list_limit[part] == index + 1 else index + 1
-        header_index = {'core': 1, 'shell' : 2, 'legs': 3, 'body': 4 }
-        self.rename_header(header_index[part], f"{part} {index}")
-        change_part = None
-        for ctc in self.body_parts:
-            if ctc.value == part:
-                change_part = ctc
-        self.game.player.change_body_part(change_part, index)
-        self.game.start_body[change_part] = index
         
-        self.status = part
+        if  chose_make:   
+            if self.status == 'Back': 
+                self.run_display = False
+                return
+            part = self.status
+            change_part = None
+            for ctc in self.body_parts:
+                if ctc.value == part:
+                    change_part = ctc
+
+            index = start_body[change_part]
+
+            index = 0 if self.game.list_limit[part] == index + 1 else index + 1
+            self.game.player.change_body_part(change_part, index)
+            start_body[change_part] = index
+        else:
+            if  self.status == None:
+                return
+
+
+        
         return
     
+    def process_entities(self):
+        
+        self.surface.fill(MenuSetting.color_bg)
+        self.draw_cursor()
+        height_step = int(self.surface.get_height()/(self.num_header+1))
+
+        self.draw_text('Back', 20, 250, height_step)
+        
+        header_index = {'core': 1, 'shell' : 2, 'legs': 3, 'body': 4 }
+        for header in header_index :
+            
+            change_part = None
+            for ctc in self.body_parts:
+                if ctc.value == header:
+                    change_part = ctc
+            index = start_body[change_part]             
+            self.draw_text(header+' '+str(index), 20, 250, (1+header_index[header])*height_step)
+
+        return
     
             
 
@@ -176,15 +195,6 @@ dict = {'vertices': [Vertex('Main'),Vertex('Pause'), Vertex('Market'), Vertex('Q
         'current_vertice': Vertex('Main'),
         'finish_vertices': [Vertex('Quit')]
         }
-
-# vertices = ['Main',Vertex('Pause'), Vertex('Market'), Vertex('Quit')]
-# transitions = {'Main': {'Start': Vertex('Pause'), 'Exit': Vertex('Quit')},
-#                 Vertex('Pause'): {'Items': Vertex('Market'),'Continue': Vertex('Pause'), 'Main menu': 'Main', 'Exit': Vertex('Quit')},
-#                 Vertex('Market'): {'Back': Vertex('Pause'), 'Core': Vertex('Market'), 'Shell' : Vertex('Market'), 'Legs': Vertex('Market'), 'Body': Vertex('Market') }
-#                    }
-# current_vertices = 'Main'
-# finish_vertices = [Vertex('Quit')]
-
 
 @dataclass
 class FSM():
@@ -216,11 +226,5 @@ class FSM():
         
 
 if __name__ == "__main__":
-    # current_menu = FSM(**dict)
-    # current_menu.make_step('Start')
-    # current_menu.make_step('Escape')
-    # print(current_menu.current_vertice)
     
-    # v = Vertex('www')
-    # # v.Name = "ff"
-    # print(v.Name)
+    v = Vertex('www')
