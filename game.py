@@ -2,18 +2,13 @@ from enum import Enum
 import pygame as pg
 import pygame_menu as pg_menu
 
+
 from engine import Character, Bar, Player, Screen, Obstacle, Entity
-from config import Settings, MenuSetting
+from config import Settings, MenuSetting, start_body
 from config import Colors, print_in_log_file
 from geometry.vector import Vector
 from character_type import RedBacteria, GreenBacteria, ChParts, CharacterTypeController
 from menu import Menu, DynamicMenu, FSM
-
-start_body = { ChParts.CORE : 2,
-        ChParts.SHELL: 1,
-        ChParts.LEGS: 0,
-        ChParts.BODY: 1}
-
 
 class GameScreen(Screen):
     def __init__(self, player,  surface: pg.Surface) -> None:
@@ -35,6 +30,7 @@ class GameScreen(Screen):
         CTC = CharacterTypeController(GreenBacteria())
 
         self.list_limit = {ch.name.lower(): len(CTC.get_all_parts()[ch])  for ch in ChParts}
+        
         self.start_body = start_body  
         for name, i in self.start_body.items():
             self.player.change_body_part(name, i)
@@ -80,7 +76,6 @@ class GameScreen(Screen):
             elif event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
                 self.game_ranning  = False
                 self.player.clear_action_duration()
-                self.status = 'Escape'
                 return
             else:
                 self.process_event(event)
@@ -99,7 +94,6 @@ class GameScreen(Screen):
             self.layers[layer_name].set_zoom(zoom)
             
     def display(self):
-        self.status = 'Escape' 
         self.game_ranning = True
         while self.game_ranning:
             Settings.FPS_clock.tick(Settings.FPS)
@@ -108,6 +102,8 @@ class GameScreen(Screen):
             self.surface.fill(Colors.pink)
             self.render()
             pg.display.flip()
+            
+        self.status = 'Escape' 
 
 
 class Game:
@@ -117,50 +113,32 @@ class Game:
         self.surface = pg.display.set_mode((Settings.width, Settings.height))
         pg.display.set_caption(Settings.game_title)
 
-        
         self.screen_manager = FSM(**MenuSetting.menu_stract)    
         self.screen_dict =  dict.fromkeys(MenuSetting.menu, None)
-        
-        
-        main_menu = Menu(self.surface, {'Start': 'Game', 'Exit': 'Quit'})
-        pause_menu = Menu(self.surface, {'Items': 'Market','Continue': 'Game', 'Main menu': 'Main', 'Exit': 'Quit'})
-        self.player = Player(GreenBacteria(), name="player")
-        CTC = CharacterTypeController(GreenBacteria())
-        self.list_limit = {ch.name.lower(): len(CTC.get_all_parts()[ch])  for ch in ChParts}
-        
-        self.game = GameScreen(self.player, self.surface )
-        header_market = {'Back': 'Pause'}
-        for name, i in start_body.items(): 
-            header_market[f"{name.value}"] = 'Market'
-        market_menu = DynamicMenu(self, self.surface, header_market, ChParts )
-        
-        self.screen_dict['Main'] = main_menu
-        self.screen_dict['Pause'] = pause_menu
-        self.screen_dict['Market'] = market_menu
-        # self.screen_dict['Game'] = self.game
-        
-        self.status = None
 
+        self.screen_dict['Main'] = Menu(self.surface, MenuSetting.main_header)
+        self.screen_dict['Pause'] = Menu(self.surface, MenuSetting.pause_header)
+        self.screen_dict['Market'] = DynamicMenu(self, self.surface, MenuSetting.market_header, ChParts )
         
-        self.is_game_run = True
-        self.is_game_pause = False
 
-    def restart(self) -> None:
-        self.player = Player(GreenBacteria(), name="player")
+        self.list_limit = {ch.name.lower(): len(CharacterTypeController(GreenBacteria()).get_all_parts()[ch])  for ch in ChParts}
+    
+
+    def init_game(self) -> None:
+        self.player = Player(GreenBacteria(), start_body, name="player")
         self.screen_dict['Game'] = GameScreen(self.player, self.surface )
       
 
     def run(self) -> None:
         
-        
-        while self.screen_manager.current_vertice.Name != 'Quit':
-            if self.screen_manager.current_vertice.Name == "Main":
-                self.restart()
-            current_display = self.screen_manager.current_vertice.Name
+        current_display = self.screen_manager.current_vertice.Name
+        while current_display != 'Quit':
+            if current_display == "Main":
+                self.init_game()
             current_screen = self.screen_dict[current_display]
             current_screen.display()
             next_display = current_screen.status
-            self.screen_manager.make_step(next_display)
+            current_display = self.screen_manager.make_step(next_display).Name
             
         pg.quit()
 

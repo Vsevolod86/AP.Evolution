@@ -6,6 +6,19 @@ from typing import Any
 from dataclasses import dataclass
 
 from character_type import PhysicsStats
+from character_type import ChParts
+
+start_body = { ChParts.CORE : 2,
+        ChParts.SHELL: 1,
+        ChParts.LEGS: 0,
+        ChParts.BODY: 1}
+
+def get_header_dyn_menu():
+    header_market = {'Back': 'Pause'}
+    for name, i in start_body.items(): 
+        header_market[f"{name.value}"] = 'Market'
+    return header_market
+
 
 @dataclass
 class Vertex:
@@ -117,7 +130,13 @@ class MenuSetting():
                 'finish_vertices': [Vertex('Quit')]
                 }
 
+    
+    
+    main_header = {'Start': 'Game', 'Exit': 'Quit'}
+    pause_header = {'Items': 'Market','Continue': 'Game', 'Main menu': 'Main', 'Exit': 'Quit'}
+    market_header = get_header_dyn_menu()
     menu = [Vertex('Main').Name,Vertex('Pause').Name, Vertex('Market').Name, Vertex('Quit').Name, Vertex('Game').Name]
+    cursor = '*'
     
     
 class Settings(
