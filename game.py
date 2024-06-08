@@ -1,22 +1,38 @@
 from enum import Enum
 import pygame as pg
+<<<<<<< HEAD
+=======
+import pygame_menu as pg_menu
+
+
+>>>>>>> refact
 from engine import Character, Bar, Player, Screen, Obstacle, Entity
-from config import Settings
+from config import Settings, MenuSetting, start_body
 from config import Colors, print_in_log_file
 from geometry.vector import Vector
 from character_type import RedBacteria, GreenBacteria, ChParts, CharacterTypeController
+<<<<<<< HEAD
 from menu import Menu
 
+=======
+from menu import Menu, DynamicMenu, FSM
+>>>>>>> refact
 
 class GameScreen(Screen):
-    def __init__(self, game, surface: pg.Surface) -> None:
+    def __init__(self, player,  surface: pg.Surface) -> None:
         w, h, i = surface.get_width(), surface.get_height(), 5
         display_area = pg.Rect(i, i, w - 2 * i, h - 2 * i)
         super().__init__(surface, display_area)
+<<<<<<< HEAD
         self.LN = Enum("LN", ["BG", "MAP", "INTERFACE"])  # Layers Names
 
         self.game = game
 
+=======
+        self.LN = Enum("LN", ["BG", "MAP", "INTERFACE"])  # Layers Names     
+        self.status = None
+        
+>>>>>>> refact
         # BackGround
         self.add_layer(self.LN.BG, 1)
         bg = Entity(Vector(w, h), Vector(i, i), self.LN.BG, Settings.bg_color)
@@ -25,14 +41,21 @@ class GameScreen(Screen):
         # MAP
         self.add_layer(self.LN.MAP, 2)
 
-        self.player = Player(GreenBacteria(), name="player")
+        self.player = player
         CTC = CharacterTypeController(GreenBacteria())
 
+<<<<<<< HEAD
         self.list_limit = {
             ch.name.lower(): len(CTC.get_all_parts()[ch]) for ch in ChParts
         }
 
         for name, i in Settings.body.items():
+=======
+        self.list_limit = {ch.name.lower(): len(CTC.get_all_parts()[ch])  for ch in ChParts}
+        
+        self.start_body = start_body  
+        for name, i in self.start_body.items():
+>>>>>>> refact
             self.player.change_body_part(name, i)
 
         self.add_entities_on_layer(self.LN.MAP, self.player)
@@ -87,20 +110,23 @@ class GameScreen(Screen):
     def set_camera_zoom(self, zoom: float):
         for layer_name in [self.LN.MAP, self.LN.BG]:
             self.layers[layer_name].set_zoom(zoom)
+<<<<<<< HEAD
 
     def display_game(self):
+=======
+            
+    def display(self):
+>>>>>>> refact
         self.game_ranning = True
         while self.game_ranning:
-
             Settings.FPS_clock.tick(Settings.FPS)
             self.event_tracking()
-
             self.process_entities()
-
             self.surface.fill(Colors.pink)
             self.render()
-
             pg.display.flip()
+            
+        self.status = 'Escape' 
 
 
 class Game:
@@ -110,6 +136,7 @@ class Game:
         self.surface = pg.display.set_mode((Settings.width, Settings.height))
         pg.display.set_caption(Settings.game_title)
 
+<<<<<<< HEAD
         self.status = None
         self.main_menu = Menu(self, self.surface, ["Start", "Exit"], "Main")
         self.pause_menu = Menu(
@@ -164,6 +191,35 @@ class Game:
                 self.game_screen.player.change_body_part(change_part, index)
                 Settings.body[change_part] = index
 
+=======
+        self.screen_manager = FSM(**MenuSetting.menu_stract)    
+        self.screen_dict =  dict.fromkeys(MenuSetting.menu, None)
+
+        self.screen_dict['Main'] = Menu(self.surface, MenuSetting.main_header)
+        self.screen_dict['Pause'] = Menu(self.surface, MenuSetting.pause_header)
+        self.screen_dict['Market'] = DynamicMenu(self, self.surface, MenuSetting.market_header, ChParts )
+        
+
+        self.list_limit = {ch.name.lower(): len(CharacterTypeController(GreenBacteria()).get_all_parts()[ch])  for ch in ChParts}
+    
+
+    def init_game(self) -> None:
+        self.player = Player(GreenBacteria(), start_body, name="player")
+        self.screen_dict['Game'] = GameScreen(self.player, self.surface )
+      
+
+    def run(self) -> None:
+        
+        current_display = self.screen_manager.current_vertice.Name
+        while current_display != 'Quit':
+            if current_display == "Main":
+                self.init_game()
+            current_screen = self.screen_dict[current_display]
+            current_screen.display()
+            next_display = current_screen.status
+            current_display = self.screen_manager.make_step(next_display).Name
+            
+>>>>>>> refact
         pg.quit()
 
 

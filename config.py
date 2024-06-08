@@ -1,9 +1,28 @@
 # конфигурации - поля классов
 from enum import Enum
 import pygame as pg
+from os.path import exists
+from typing import Any
+from dataclasses import dataclass
 
 from character_type import PhysicsStats, ChParts
 
+start_body = { ChParts.CORE : 2,
+        ChParts.SHELL: 1,
+        ChParts.LEGS: 0,
+        ChParts.BODY: 1}
+
+def get_header_dyn_menu():
+    header_market = {'Back': 'Pause'}
+    for name, i in start_body.items(): 
+        header_market[f"{name.value}"] = 'Market'
+    return header_market
+
+
+@dataclass
+class Vertex:
+    """Вершины, использумые в графах"""
+    Name: Any 
 
 class Colors:
     black = (0, 0, 0)
@@ -12,6 +31,7 @@ class Colors:
     green = (0, 125, 0)
     turquoise = (0, 154, 200)
     pink = (255, 56, 103)
+    white = (255,255,255)
 
 
 class ScreenSettings:
@@ -91,25 +111,43 @@ class DefaultCharacterSettings:
     effects = [Action.INVULNERABILITY]
 
 
-class MainMenu:
-    Start = "Start game"
-    LEFT = "Exit"
 
 
-class PauseMenu:
-    Continue = "Continue game"
-    Item = "Market"
-    Restart = "Restart game"
 
+class MenuSetting():
+    color_bg = Colors.black
+    color_text = Colors.white
+    font = '8-BIT WONDER.TTF' if exists('8-BIT WONDER.TTF') else pg.font.get_default_font()
+    menu_stract = {'vertices': [Vertex('Main'),Vertex('Pause'), Vertex('Market'), Vertex('Quit'), Vertex('Game')],
+                'transitions' : {Vertex('Main').Name: {'Start': Vertex('Game'), 
+                                                        'Exit': Vertex('Quit')},
+                                 
+                                Vertex('Pause').Name: {'Items': Vertex('Market'),
+                                                    'Continue': Vertex('Game'), 
+                                                    'Main menu': Vertex('Main'), 
+                                                    'Exit': Vertex('Quit')},
+                                
+                                Vertex('Market').Name: {'Back': Vertex('Pause'), 
+                                                    'core': Vertex('Market'), 
+                                                    'shell' : Vertex('Market'), 
+                                                    'legs': Vertex('Market'), 
+                                                    'body': Vertex('Market') },
+                                
+                                Vertex('Game').Name: {'Escape': Vertex('Pause')}
+                                },
+                'current_vertice': Vertex('Main'),
+                'finish_vertices': [Vertex('Quit')]
+                }
 
-class MarketMenu:
-    Back = "Back"
-
-
-class MenuSetting(MainMenu, PauseMenu, MarketMenu):
-    pass
-
-
+    
+    
+    main_header = {'Start': 'Game', 'Exit': 'Quit'}
+    pause_header = {'Items': 'Market','Continue': 'Game', 'Main menu': 'Main', 'Exit': 'Quit'}
+    market_header = get_header_dyn_menu()
+    menu = [Vertex('Main').Name,Vertex('Pause').Name, Vertex('Market').Name, Vertex('Quit').Name, Vertex('Game').Name]
+    cursor = '*'
+    
+    
 class Settings(
     DefaultCharacterSettings,
     PhysicsSettings,
@@ -127,3 +165,6 @@ def print_in_log_file(msg: str):
     with open(GameSettings.log_file_name, "a") as f:
         # f.write(msg + "\n")
         print(msg)
+
+
+# if __name__ == "__main__":

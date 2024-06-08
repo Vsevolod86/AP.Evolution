@@ -567,11 +567,12 @@ class Character(PhysicsEntity):
 
 
 class Player(Character, IEventProcessable):
-    def __init__(self, character_type: CharacterType, name="Player") -> None:
+    def __init__(self, character_type: CharacterType, body, name="Player") -> None:
         super().__init__(
             character_type=character_type,
             name=name,
         )
+        self.body = body
         self.__set_clamped_buttons()
 
     def __set_clamped_buttons(self):
@@ -799,3 +800,8 @@ class Screen(IEventProcessable):
     @abstractmethod
     def process_entities(self):
         pass
+    
+    @abstractmethod
+    def display(self):
+        pass
+    
